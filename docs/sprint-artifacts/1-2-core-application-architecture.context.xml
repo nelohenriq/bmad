@@ -1,0 +1,86 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>2</storyId>
+    <title>core-application-architecture</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-14T12:13:10.915Z</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/1-2-core-application-architecture.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>the basic web application framework running</iWant>
+    <soThat>UI components can be built and user interactions implemented</soThat>
+    <tasks>- [ ] Implement basic application routing
+  - [ ] Initialize state management
+  - [ ] Set up responsive layout framework
+  - [ ] Configure development server</tasks>
+  </story>
+
+  <acceptanceCriteria>**Given** project setup is complete
+**When** developer starts the application
+**Then** web application loads on localhost:3000
+**And** basic routing is configured for main sections
+**And** state management is initialized
+**And** responsive layout framework is in place
+
+**Prerequisites:** Story 1.1</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture</title>
+        <section>Technology Stack Details</section>
+        <snippet>Use Next.js with App Router, Zustand for state management, and Tailwind CSS for responsive design.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epics</title>
+        <section>Epic 1: Foundation</section>
+        <snippet>Foundation epic establishes core web application framework and user interface infrastructure.</snippet>
+      </artifact>
+    </docs>
+    <code></code>
+    <dependencies>
+      <dependency>
+        <ecosystem>node</ecosystem>
+        <packages>
+          <package name="next" version="14.2.3" />
+          <package name="react" version="latest" />
+          <package name="zustand" version="4.4.7" />
+          <package name="tailwindcss" version="3.4.1" />
+        </packages>
+      </dependency>
+    </dependencies>
+  </artifacts>
+
+  <constraints>- Use Next.js App Router for modern routing
+- Implement Zustand for lightweight state management
+- Follow architecture.md specifications for component organization
+- Ensure responsive design from the start</constraints>
+  <interfaces>
+    <interface>
+      <name>Next.js App Router</name>
+      <kind>routing system</kind>
+      <signature>app/[route]/page.tsx</signature>
+      <path>app/</path>
+    </interface>
+    <interface>
+      <name>Zustand Store</name>
+      <kind>state management</kind>
+      <signature>create<T>()((set) => ({...}))</signature>
+      <path>src/stores/</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Use Jest and React Testing Library for component testing. Include routing and state management tests.</standards>
+    <locations>__tests__/components/ for component tests, __tests__/stores/ for state tests.</locations>
+    <ideas>- Test application startup and routing
+- Verify state management initialization
+- Test responsive layout components
+- Validate development server configuration</ideas>
+  </tests>
+</story-context>

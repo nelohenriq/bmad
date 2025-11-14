@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>3-3-content-angle-identification</story-id>
+    <epic-id>epic-3</epic-id>
+    <title>Content Angle Identification</title>
+    <status>drafted</status>
+    <created>2025-11-14T15:35:38.338Z</created>
+    <author>AI Assistant</author>
+  </metadata>
+
+  <business-context>
+    <problem-statement>
+      Content creators struggle to find unique, compelling angles for trending topics,
+      often producing generic content that gets lost in crowded information landscapes.
+    </problem-statement>
+    <business-value>
+      <item>Generate differentiated content angles that stand out from competitors</item>
+      <item>Increase audience engagement through unique perspectives</item>
+      <item>Improve SEO performance by targeting underserved angles</item>
+      <item>Scale content production with systematic angle ideation</item>
+      <item>Reduce content creation time through AI-powered angle suggestions</item>
+    </business-value>
+    <success-metrics>
+      <metric name="angle-uniqueness" target="75%" description="Average uniqueness score for generated angles"/>
+      <metric name="response-time-cached" target="<3s" description="Response time for cached angle requests"/>
+      <metric name="response-time-new" target="<10s" description="Response time for new angle generation"/>
+      <metric name="angle-adoption" target="80%" description="Percentage of generated angles used in content"/>
+      <metric name="engagement-improvement" target="25%" description="Improvement in content engagement rates"/>
+    </success-metrics>
+  </business-context>
+
+  <technical-context>
+    <architecture-overview>
+      <component name="angle-generation-engine">
+        <description>Core engine for generating creative content angles using LLM and topic analysis</description>
+        <responsibilities>
+          <item>Analyze trending topic characteristics and context</item>
+          <item>Generate diverse content angles using structured prompts</item>
+          <item>Assess angle uniqueness and market saturation</item>
+          <item>Score angles for SEO and engagement potential</item>
+          <item>Filter and rank angles based on quality criteria</item>
+        </responsibilities>
+      </component>
+
+      <component name="angle-data-service">
+        <description>Service for storing, retrieving, and managing content angle data</description>
+        <responsibilities>
+          <item>Persist generated angles with topic relationships</item>
+          <item>Implement caching for frequently requested angles</item>
+          <item>Track angle usage and performance metrics</item>
+          <item>Manage angle freshness and regeneration scheduling</item>
+          <item>Provide efficient querying and filtering capabilities</item>
+        </responsibilities>
+      </component>
+
+      <component name="angle-api-service">
+        <description>RESTful API for angle data access and generation requests</description>
+        <responsibilities>
+          <item>Provide angle data with filtering and pagination</item>
+          <item>Handle angle generation requests with queuing</item>
+          <item>Implement rate limiting and caching headers</item>
+          <item>Support real-time angle updates via WebSocket</item>
+          <item>Provide angle performance analytics endpoints</item>
+        </responsibilities>
+      </component>
+    </architecture-overview>
+
+    <data-model>
+      <entity name="ContentAngle">
+        <description>Generated content angles for topics with quality metrics</description>
+        <fields>
+          <field name="id" type="String" required="true" description="Unique angle identifier"/>
+          <field name="topicId" type="String" required="true" description="Reference to Topic model"/>
+          <field name="topic" type="Topic" required="true" description="Related topic entity"/>
+          <field name="title" type="String" required="true" description="Angle title/headline"/>
+          <field name="description" type="String" required="true" description="Detailed angle description"/>
+          <field name="angle" type="String" required="true" description="Core angle concept"/>
+          <field name="uniquenessScore" type="Float" required="true" description="Originality score (0-1)"/>
+          <field name="difficulty" type="Enum" required="true" description="easy|medium|hard"/>
+          <field name="targetAudience" type="String" required="true" description="JSON array of audience segments"/>
+          <field name="seoPotential" type="Float" required="true" description="SEO opportunity score (0-1)"/>
+          <field name="engagementPotential" type="Float" required="true" description="Engagement prediction (0-1)"/>
+          <field name="marketSaturation" type="Float" required="true" description="Market saturation level (0-1)"/>
+          <field name="keywords" type="String" required="true" description="JSON array of relevant keywords"/>
+          <field name="usageCount" type="Int" required="true" default="0" description="Times angle was used"/>
+          <field name="performanceScore" type="Float" required="true" default="0.0" description="Actual performance metric"/>
+          <field name="generatedAt" type="DateTime" required="true" description="When angle was generated"/>
+          <field name="expiresAt" type="DateTime" required="true" description="When angle should be regenerated"/>
+          <field name="createdAt" type="DateTime" required="true" description="Database creation timestamp"/>
+          <field name="updatedAt" type="DateTime" required="true" description="Last update timestamp"/>
+        </fields>
+        <indexes>
+          <index fields="topicId" type="single"/>
+          <index fields="uniquenessScore" type="single"/>
+          <index fields="seoPotential" type="single"/>
+          <index fields="engagementPotential" type="single"/>
+          <index fields="expiresAt" type="single"/>
+          <index fields="usageCount" type="single"/>
+          <index fields="targetAudience" type="single"/>
+        </indexes>
+      </entity>
+
+      <entity name="AngleGenerationRequest">
+        <description>Tracks angle generation requests and their status</description>
+        <fields>
+          <field name="id" type="String" required="true" description="Request identifier"/>
+          <field name="topicId" type="String" required="true" description="Topic for angle generation"/>
+          <field name="status" type="Enum" required="true" description="pending|processing|completed|failed"/>
+          <field name="angleCount" type="Int" required="true" description="Number of angles to generate"/>
+          <field name="targetAudience" type="String" required="false" description="Specific audience targeting"/>
+          <field name="priority" type="Enum" required="true" default="normal" description="low|normal|high"/>
+          <field name="errorMessage" type="String" required="false" description="Error details if failed"/>
+          <field name="processingTime" type="Int" required="false" description="Processing time in milliseconds"/>
+          <field name="createdAt" type="DateTime" required="true" description="Request creation time"/>
+          <field name="completedAt" type="DateTime" required="false" description="Request completion time"/>
+        </fields>
+        <indexes>
+          <index fields="status" type="single"/>
+          <index fields="topicId" type="single"/>
+          <index fields="priority" type="single"/>
+          <index fields="createdAt" type="single"/>
+        </indexes>
+      </entity>
+    </data-model>
+
+    <algorithms>
+      <algorithm name="angle-generation">
+        <description>Generate diverse content angles using structured LLM prompts</description>
+        <implementation>
+          <step>Analyze topic characteristics (trend data, keywords, category)</step>
+          <step>Construct contextual prompt with topic background</step>
+          <step>Generate multiple angle variations using temperature sampling</step>
+          <step>Validate angle quality and diversity</step>
+          <step>Filter and rank angles based on quality criteria</step>
+        </implementation>
+        <prompt-structure>
+          <context>Topic background, trend data, existing content landscape</context>
+          <constraints>Target audience, content type, uniqueness requirements</constraints>
+          <output-format>Structured JSON with angle details and quality metrics</output-format>
+        </prompt-structure>
+      </algorithm>
+
+      <algorithm name="uniqueness-assessment">
+        <description>Evaluate angle originality compared to existing content</description>
+        <formula>uniqueness = 1 - (similar_angles / total_angles) × saturation_penalty</formula>
+        <implementation>
+          <step>Compare angle against existing angles for same topic</step>
+          <step>Analyze semantic similarity using embeddings</step>
+          <step>Check for keyword overlap and concept duplication</step>
+          <step>Apply market saturation penalty for over-covered angles</step>
+          <step>Calculate final uniqueness score with confidence interval</step>
+        </implementation>
+      </algorithm>
+
+      <algorithm name="angle-scoring">
+        <description>Comprehensive scoring of angle quality across multiple dimensions</description>
+        <scoring-dimensions>
+          <dimension name="seo-potential" weight="0.3" description="Search visibility opportunity"/>
+          <dimension name="engagement-potential" weight="0.3" description="Predicted audience engagement"/>
+          <dimension name="market-saturation" weight="0.2" description="Competition level"/>
+          <dimension name="content-difficulty" weight="0.1" description="Production complexity"/>
+          <dimension name="trend-alignment" weight="0.1" description="Alignment with current trends"/>
+        </scoring-dimensions>
+        <implementation>
+          <step>Calculate SEO potential based on keyword competition and search volume</step>
+          <step>Predict engagement using historical data and angle characteristics</step>
+          <step>Assess market saturation through content analysis</step>
+          <step>Determine difficulty based on research requirements and complexity</step>
+          <step>Score trend alignment using velocity and momentum data</step>
+        </implementation>
+      </algorithm>
+    </algorithms>
+
+    <api-endpoints>
+      <endpoint method="GET" path="/api/angles">
+        <description>Get angles for trending topics with filtering</description>
+        <parameters>
+          <param name="topicId" type="string" required="false" description="Specific topic ID"/>
+          <param name="trending" type="boolean" required="false" default="true" description="Only trending topics"/>
+          <param name="minUniqueness" type="number" required="false" default="0.7" description="Minimum uniqueness score"/>
+          <param name="targetAudience" type="string" required="false" description="Filter by audience segment"/>
+          <param name="limit" type="number" required="false" default="50" description="Maximum results"/>
+          <param name="offset" type="number" required="false" default="0" description="Pagination offset"/>
+        </parameters>
+        <response>
+          <field name="angles" type="ContentAngle[]" description="Array of content angles"/>
+          <field name="totalCount" type="number" description="Total available angles"/>
+          <field name="hasMore" type="boolean" description="Whether more results are available"/>
+          <field name="generatedAt" type="string" description="Response generation timestamp"/>
+        </response>
+      </endpoint>
+
+      <endpoint method="POST" path="/api/angles/generate">
+        <description>Generate new angles for a topic</description>
+        <parameters>
+          <param name="topicId" type="string" required="true" description="Topic to generate angles for"/>
+          <param name="count" type="number" required="false" default="5" description="Number of angles to generate"/>
+          <param name="targetAudience" type="string" required="false" description="Specific audience targeting"/>
+          <param name="minUniqueness" type="number" required="false" default="0.7" description="Minimum uniqueness threshold"/>
+          <param name="priority" type="string" required="false" default="normal" description="Request priority"/>
+        </parameters>
+        <response>
+          <field name="requestId" type="string" description="Generation request ID"/>
+          <field name="status" type="string" description="Request status"/>
+          <field name="estimatedTime" type="number" description="Estimated completion time in seconds"/>
+          <field name="message" type="string" description="Status message"/>
+        </response>
+      </endpoint>
+
+      <endpoint method="GET" path="/api/angles/{angleId}">
+        <description>Get detailed information about a specific angle</description>
+        <parameters>
+          <param name="angleId" type="string" required="true" description="Angle identifier"/>
+        </parameters>
+        <response>
+          <field name="angle" type="ContentAngle" description="Complete angle details"/>
+          <field name="topic" type="Topic" description="Related topic information"/>
+          <field name="performance" type="object" description="Usage and performance metrics"/>
+          <field name="similarAngles" type="ContentAngle[]" description="Related angle suggestions"/>
+        </response>
+      </endpoint>
+
+      <endpoint method="POST" path="/api/angles/{angleId}/use">
+        <description>Record usage of a content angle</description>
+        <parameters>
+          <param name="angleId" type="string" required="true" description="Angle identifier"/>
+          <param name="contentId" type="string" required="false" description="Associated content ID"/>
+          <param name="performance" type="number" required="false" description="Initial performance score"/>
+        </parameters>
+        <response>
+          <field name="success" type="boolean" description="Usage recording success"/>
+          <field name="usageCount" type="number" description="Updated usage count"/>
+        </response>
+      </endpoint>
+    </api-endpoints>
+
+    <caching-strategy>
+      <cache-layer name="angle-results" ttl="3600">
+        <description>Cache generated angles for 1 hour</description>
+        <invalidation-triggers>
+          <trigger>New angle generation for topic</trigger>
+          <trigger>Topic trend data updates</trigger>
+          <trigger>Angle expiration time reached</trigger>
+        </invalidation-triggers>
+      </cache-layer>
+
+      <cache-layer name="topic-context" ttl="1800">
+        <description>Cache topic analysis data for 30 minutes</description>
+        <invalidation-triggers>
+          <trigger>New content analysis for topic</trigger>
+          <trigger>Topic metadata updates</trigger>
+        </invalidation-triggers>
+      </cache-layer>
+
+      <cache-layer name="generation-prompts" ttl="86400">
+        <description>Cache compiled generation prompts for 24 hours</description>
+        <invalidation-triggers>
+          <trigger>Prompt template updates</trigger>
+          <trigger>Algorithm configuration changes</trigger>
+        </invalidation-triggers>
+      </cache-layer>
+    </caching-strategy>
+
+    <performance-requirements>
+      <requirement name="cached-response-time" target="<3s" description="Response time for cached angle requests"/>
+      <requirement name="generation-response-time" target="<10s" description="Response time for new angle generation"/>
+      <requirement name="concurrent-generations" target="10" description="Maximum concurrent angle generation requests"/>
+      <requirement name="cache-hit-rate" target="80%" description="Target cache hit rate for angle requests"/>
+      <requirement name="angle-freshness" target="<24h" description="Maximum age of cached angles"/>
+      <requirement name="memory-usage" target="<512MB" description="Maximum memory usage for angle service"/>
+    </performance-requirements>
+
+    <error-handling>
+      <error type="generation-failure" code="ANGLE_GENERATION_FAILED">
+        <description>LLM service unavailable or returned invalid response</description>
+        <handling>Fallback to cached angles, return error with retry suggestion</handling>
+        <logging>Log error details and trigger monitoring alert</logging>
+      </error>
+
+      <error type="cache-miss-storm" code="CACHE_OVERLOAD">
+        <description>High volume of cache misses causing performance degradation</description>
+        <handling>Implement request throttling and queue management</handling>
+        <logging>Monitor cache hit rates and trigger scaling actions</logging>
+      </error>
+
+      <error type="invalid-topic" code="TOPIC_NOT_FOUND">
+        <description>Requested topic does not exist or has insufficient data</description>
+        <handling>Return 404 with suggestion to check topic availability</handling>
+        <logging>Log invalid requests for trend analysis</logging>
+      </error>
+    </error-handling>
+
+    <monitoring-alerting>
+      <metric name="angle-generation-latency" threshold="10s" alert="warning">
+        <description>Time taken to generate new angles</description>
+      </metric>
+      <metric name="angle-cache-hit-rate" threshold="70%" alert="warning">
+        <description>Percentage of angle requests served from cache</description>
+      </metric>
+      <metric name="angle-uniqueness-average" threshold="0.7" alert="warning">
+        <description>Average uniqueness score of generated angles</description>
+      </metric>
+      <metric name="generation-queue-depth" threshold="20" alert="error">
+        <description>Number of pending angle generation requests</description>
+      </metric>
+      <metric name="angle-usage-rate" threshold="50%" alert="info">
+        <description>Percentage of generated angles that get used</description>
+      </metric>
+    </monitoring-alerting>
+  </technical-context>
+
+  <testing-strategy>
+    <unit-tests>
+      <test name="angle-generation-algorithm" coverage="90%">
+        <description>Test angle generation logic with various topic types</description>
+        <scenarios>
+          <scenario>Technology trending topics</scenario>
+          <scenario>Business and finance topics</scenario>
+          <scenario>Social and cultural topics</scenario>
+          <scenario>Edge cases with limited topic data</scenario>
+        </scenarios>
+      </test>
+
+      <test name="uniqueness-scoring" coverage="85%">
+        <description>Validate uniqueness scoring algorithm accuracy</description>
+        <scenarios>
+          <scenario>Highly unique angle detection</scenario>
+          <scenario>Saturated market angle identification</scenario>
+          <scenario>Semantic similarity assessment</scenario>
+        </scenarios>
+      </test>
+
+      <test name="angle-quality-scoring" coverage="80%">
+        <description>Test comprehensive angle quality evaluation</description>
+        <scenarios>
+          <scenario>SEO potential calculation</scenario>
+          <scenario>Engagement potential prediction</scenario>
+          <scenario>Combined scoring algorithm</scenario>
+        </scenarios>
+      </test>
+    </unit-tests>
+
+    <integration-tests>
+      <test name="angle-generation-pipeline" coverage="85%">
+        <description>Test complete angle generation workflow</description>
+        <scenarios>
+          <scenario>Topic analysis to angle generation</scenario>
+          <scenario>Angle storage and retrieval</scenario>
+          <scenario>Caching behavior validation</scenario>
+          <scenario>API endpoint integration</scenario>
+        </scenarios>
+      </test>
+
+      <test name="trend-integration" coverage="80%">
+        <description>Test integration with trend detection system</description>
+        <scenarios>
+          <scenario>Trending topic angle generation</scenario>
+          <scenario>Trend data influence on angle quality</scenario>
+          <scenario>Real-time trend updates triggering angle regeneration</scenario>
+        </scenarios>
+      </test>
+    </integration-tests>
+
+    <performance-tests>
+      <test name="angle-generation-performance" target="10s">
+        <description>Test angle generation performance under load</description>
+        <scenarios>
+          <scenario>Concurrent angle generation requests</scenario>
+          <scenario>Large topic datasets processing</scenario>
+          <scenario>Cache performance validation</scenario>
+        </scenarios>
+      </test>
+
+      <test name="api-response-times" target="3s">
+        <description>Validate API response times for various scenarios</description>
+        <scenarios>
+          <scenario>Cached angle retrieval</scenario>
+          <scenario>New angle generation requests</scenario>
+          <scenario>Complex filtering queries</scenario>
+        </scenarios>
+      </test>
+    </performance-tests>
+
+    <accuracy-tests>
+      <test name="angle-quality-validation" target="75%">
+        <description>Validate angle quality through human evaluation</description>
+        <methodology>
+          <item>Generate angles for known trending topics</item>
+          <item>Human evaluators score angle quality and uniqueness</item>
+          <item>Compare algorithmic scores with human evaluation</item>
+          <item>Iterate on algorithms based on evaluation results</item>
+        </methodology>
+      </test>
+    </accuracy-tests>
+  </testing-strategy>
+
+  <deployment-readiness>
+    <database-migration>
+      <migration name="add_content_angle_tables">
+        <description>Create ContentAngle and AngleGenerationRequest tables</description>
+        <rollback-strategy>Drop tables if migration fails</rollback-strategy>
+      </migration>
+    </database-migration>
+
+    <configuration>
+      <config name="angle-generation">
+        <parameter name="defaultAngleCount" value="5" type="number"/>
+        <parameter name="minUniquenessScore" value="0.7" type="number"/>
+        <parameter name="maxConcurrentGenerations" value="10" type="number"/>
+        <parameter name="angleCacheTtl" value="3600" type="number"/>
+        <parameter name="angleExpirationHours" value="24" type="number"/>
+      </config>
+
+      <config name="scoring-weights">
+        <parameter name="seoWeight" value="0.3" type="number"/>
+        <parameter name="engagementWeight" value="0.3" type="number"/>
+        <parameter name="saturationWeight" value="0.2" type="number"/>
+        <parameter name="difficultyWeight" value="0.1" type="number"/>
+        <parameter name="trendWeight" value="0.1" type="number"/>
+      </config>
+    </configuration>
+
+    <monitoring-setup>
+      <alert name="angle-generation-failure">
+        <condition>Angle generation fails for more than 10 consecutive requests</condition>
+        <action>Send alert to development team and enable fallback mode</action>
+      </alert>
+
+      <alert name="high-generation-queue">
+        <condition>Angle generation queue depth exceeds 20 requests</condition>
+        <action>Scale angle generation workers and alert team</action>
+      </alert>
+
+      <alert name="low-cache-hit-rate">
+        <condition>Angle cache hit rate drops below 70% for 5 minutes</condition>
+        <action>Review cache configuration and invalidation strategy</action>
+      </alert>
+    </monitoring-setup>
+
+    <rollback-plan>
+      <step>Disable angle generation API endpoints (return 503)</step>
+      <step>Clear angle-related caches</step>
+      <step>Stop angle generation background processes</step>
+      <step>Drop ContentAngle and AngleGenerationRequest tables</step>
+      <step>Remove angle-related configuration</step>
+      <step>Restart application services</step>
+    </rollback-plan>
+  </deployment-readiness>
+</story-context>

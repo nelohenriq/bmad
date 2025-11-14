@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>epic-4</epicId>
+    <storyId>4-2</storyId>
+    <title>AI Blog Post Writing</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-14T17:09:57.767Z</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/4-2-ai-blog-post-writing.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>an AI writer</asA>
+    <iWant>generate full blog posts</iWant>
+    <soThat>complete content is produced</soThat>
+    <tasks>
+- [ ] Create ContentWritingService with LLM integration for blog post generation
+- [ ] Implement outline parsing and section mapping algorithm
+- [ ] Build sequential content generation with quality validation
+- [ ] Create API endpoints for post generation and retrieval
+- [ ] Extend Content model with full post storage capabilities
+- [ ] Add content validation and coherence checking
+- [ ] Implement performance optimization for content generation
+- [ ] Create comprehensive testing for content generation quality
+- [ ] Update story file with implementation details and testing
+- [ ] Mark story complete and move to review
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <functional>
+      <item>Generate complete blog posts from approved outlines</item>
+      <item>Incorporate topic context and angle perspectives in writing</item>
+      <item>Maintain engaging and informative writing style</item>
+      <item>Support different content lengths and depths</item>
+      <item>Store generated content with outline relationships</item>
+    </functional>
+    <technical>
+      <item>Integrate with Content and Outline models from database</item>
+      <item>Use Ollama LLM service for content generation</item>
+      <item>Implement multi-step writing process with quality checks</item>
+      <item>Support concurrent content generation requests</item>
+      <item>Provide content metadata (generation time, word count, readability)</item>
+    </technical>
+    <quality>
+      <item>Content generation completes within 30 seconds for short posts</item>
+      <item>Generated content follows outline structure completely</item>
+      <item>Writing is coherent, engaging, and error-free</item>
+      <item>Content incorporates all outline sections and key points</item>
+      <item>Basic grammar and readability standards met</item>
+    </quality>
+    <data>
+      <item>Store generated content in Content model with full text</item>
+      <item>Link content to source outline and topic</item>
+      <item>Track content generation metadata and quality metrics</item>
+      <item>Support content versioning and iterative improvements</item>
+    </data>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <item path="docs/epics.md" title="Neural Feed Studio Epics" section="Epic 4: AI Content Generation" snippet="Implement multi-agent AI system for generating blog content from selected topics. Story 4.2 focuses on AI blog post writing from approved outlines."/>
+      <item path="docs/sprint-artifacts/tech-spec-epic-4.md" title="Epic 4 Technical Specification" section="Content Generation Architecture" snippet="Technical requirements for AI content generation including LLM integration, multi-step writing process, and quality validation."/>
+      <item path="docs/architecture.md" title="System Architecture" section="AI Integration Layer" snippet="Architecture patterns for LLM integration, service layer design, and API endpoint structure."/>
+      <item path="docs/sprint-artifacts/4-1-blog-post-outline-generation.md" title="Story 4.1: Outline Generation" section="Implementation Details" snippet="Completed outline generation service providing structured content frameworks for this story's content generation."/>
+    </docs>
+    <code>
+      <item path="src/services/content/contentOutlineService.ts" kind="service" symbol="ContentOutlineService" lines="1-301" reason="Reference implementation for LLM integration patterns and service architecture"/>
+      <item path="src/app/api/content/generate-outline/route.ts" kind="controller" symbol="POST generate-outline" lines="1-85" reason="API endpoint pattern for content generation with validation and error handling"/>
+      <item path="src/app/api/content/[contentId]/outline/route.ts" kind="controller" symbol="GET outline retrieval" lines="1-60" reason="API pattern for content retrieval with proper error responses"/>
+      <item path="prisma/schema.prisma" kind="model" symbol="Content model" lines="1-50" reason="Database schema with outline fields and relationships"/>
+      <item path="src/services/ai/ollamaClient.ts" kind="service" symbol="OllamaClient" lines="1-100" reason="LLM integration service for content generation"/>
+      <item path="src/services/database/prisma.ts" kind="service" symbol="Prisma client" lines="1-20" reason="Database access patterns and connection management"/>
+    </code>
+    <dependencies>
+      <item ecosystem="Node.js" package="next" version="^14.0.0" type="framework">React framework for API routes and server-side rendering</item>
+      <item ecosystem="Node.js" package="prisma" version="^5.0.0" type="orm">Database ORM for Content model interactions</item>
+      <item ecosystem="Node.js" package="zod" version="^3.0.0" type="validation">Request validation and type safety</item>
+      <item ecosystem="TypeScript" package="@types/node" version="^20.0.0" type="types">Type definitions for Node.js</item>
+      <item ecosystem="AI" package="ollama" version="latest" type="llm">Local LLM service for content generation</item>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <item>Content generation must complete within 30 seconds for short posts to maintain responsive UX</item>
+    <item>Generated content must follow outline structure completely - no missing sections or key points</item>
+    <item>Writing quality must meet basic grammar and readability standards</item>
+    <item>Content must incorporate all angle perspectives from the source outline</item>
+    <item>Service must handle concurrent requests without resource conflicts</item>
+    <item>Database operations must maintain referential integrity with outline relationships</item>
+    <item>LLM integration must gracefully handle service unavailability with fallback logic</item>
+    <item>API responses must include comprehensive metadata for tracking and debugging</item>
+  </constraints>
+
+  <interfaces>
+    <item name="ContentWritingService.generatePost" kind="service method" signature="generatePost(request: BlogPostGenerationRequest): Promise<BlogPost>" path="src/services/content/contentWritingService.ts">
+      Core service method for generating blog posts from outlines
+    </item>
+    <item name="POST /api/content/generate-post" kind="REST endpoint" signature="POST /api/content/generate-post" path="src/app/api/content/generate-post/route.ts">
+      API endpoint for initiating blog post generation
+    </item>
+    <item name="GET /api/content/{contentId}/post" kind="REST endpoint" signature="GET /api/content/{contentId}/post" path="src/app/api/content/[contentId]/post/route.ts">
+      API endpoint for retrieving generated blog posts
+    </item>
+    <item name="Content Model" kind="database model" signature="Content { id, topicId, outline, content, status, ... }" path="prisma/schema.prisma">
+      Database model for storing generated content with outline relationships
+    </item>
+    <item name="OllamaClient.generateContent" kind="external service" signature="generateContent(prompt: string): Promise<string>" path="src/services/ai/ollamaClient.ts">
+      LLM service interface for content generation
+    </item>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <item>Unit tests for all service methods with mocked LLM responses</item>
+      <item>Integration tests for complete outline-to-content generation workflow</item>
+      <item>API endpoint tests with proper request validation and error responses</item>
+      <item>Performance tests ensuring 30-second generation time limits</item>
+      <item>Content quality tests validating outline adherence and coherence</item>
+      <item>Database integration tests for content storage and retrieval</item>
+      <item>Error handling tests for LLM failures and malformed responses</item>
+    </standards>
+    <locations>
+      <item>src/__tests__/services/content/contentWritingService.test.ts</item>
+      <item>src/__tests__/api/content/generate-post.test.ts</item>
+      <item>src/__tests__/api/content/[contentId]/post.test.ts</item>
+      <item>src/__tests__/integration/content-generation.test.ts</item>
+      <item>src/__tests__/performance/content-generation-perf.test.ts</item>
+    </locations>
+    <ideas>
+      <item>Test outline parsing with various outline structures and complexities</item>
+      <item>Validate content generation incorporates all angle perspectives</item>
+      <item>Test concurrent content generation requests for resource conflicts</item>
+      <item>Verify content quality metrics and coherence scoring</item>
+      <item>Test error handling when LLM service is unavailable</item>
+      <item>Validate database relationships between content, outlines, and topics</item>
+      <item>Test content regeneration with different style and length parameters</item>
+      <item>Verify API response metadata includes all required fields</item>
+    </ideas>
+  </tests>
+</story-context>

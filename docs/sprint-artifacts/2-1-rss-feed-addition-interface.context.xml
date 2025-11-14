@@ -1,0 +1,129 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>2-1</storyId>
+    <title>rss-feed-addition-interface</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-14T13:23:05.000Z</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/2-1-rss-feed-addition-interface.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>add RSS feed sources</iWant>
+    <soThat>I can specify content sources for processing</soThat>
+    <tasks>- [ ] Create FeedAdditionForm component with URL input
+- [ ] Implement RSS URL validation logic
+- [ ] Add form submission handling
+- [ ] Integrate with database for feed storage
+- [ ] Add success/error message display
+- [ ] Implement loading states</tasks>
+  </story>
+
+  <acceptanceCriteria>**Given** user is on feed management page
+**When** user enters RSS feed URL and clicks "Add"
+**Then** feed URL is validated for RSS format
+**And** feed is added to user's feed list
+**And** success confirmation is shown
+**And** invalid URLs show appropriate error messages</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epics</title>
+        <section>Epic 2: RSS Feed Management</section>
+        <snippet>Story 2.1 implements the RSS feed addition interface with validation and storage.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/2-rss-feed-management.context.xml</path>
+        <title>Epic Context</title>
+        <section>Story 2.1 Details</section>
+        <snippet>RSS feed addition interface with URL validation and database integration.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/components/FeedAdditionForm.tsx</path>
+        <title>Feed Addition Form</title>
+        <section>UI Components</section>
+        <snippet>New component for RSS feed URL input and validation.</snippet>
+      </artifact>
+      <artifact>
+        <path>src/services/rssService.ts</path>
+        <title>RSS Service</title>
+        <section>Business Logic</section>
+        <snippet>New service for RSS validation and feed management operations.</snippet>
+      </artifact>
+      <artifact>
+        <path>src/services/database/contentService.ts</path>
+        <title>Content Service</title>
+        <section>Database Operations</section>
+        <snippet>Extend existing service with RSS feed CRUD operations.</snippet>
+      </artifact>
+    </code>
+    <dependencies>
+      <dependency>
+        <ecosystem>node</ecosystem>
+        <packages>
+          <package name="rss-parser" version="latest" />
+          <package name="react-hook-form" version="latest" />
+          <package name="zod" version="latest" />
+        </packages>
+      </dependency>
+    </dependencies>
+  </artifacts>
+
+  <constraints>- RSS URL must be validated before storage
+- Duplicate URLs must be rejected
+- Network timeouts should be handled gracefully
+- User feedback must be immediate and clear
+- Form validation should work without JavaScript for accessibility
+- Error messages should be user-friendly and actionable</constraints>
+
+  <interfaces>
+    <interface>
+      <name>AddFeedRequest</name>
+      <type>interface</type>
+      <properties>
+        <property name="url" type="string" description="RSS feed URL to add" required="true" />
+        <property name="category" type="string" description="Optional category for organization" optional="true" />
+      </properties>
+    </interface>
+    <interface>
+      <name>AddFeedResponse</name>
+      <type>interface</type>
+      <properties>
+        <property name="success" type="boolean" description="Whether the operation succeeded" />
+        <property name="feedId" type="string" description="ID of the added feed" optional="true" />
+        <property name="error" type="string" description="Error message if operation failed" optional="true" />
+      </properties>
+    </interface>
+    <interface>
+      <name>FeedValidationResult</name>
+      <type>interface</type>
+      <properties>
+        <property name="isValid" type="boolean" description="Whether the feed URL is valid" />
+        <property name="feedTitle" type="string" description="Extracted feed title" optional="true" />
+        <property name="feedDescription" type="string" description="Extracted feed description" optional="true" />
+        <property name="error" type="string" description="Validation error message" optional="true" />
+      </properties>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Use Jest and React Testing Library for component testing, Vitest for utility testing. Follow existing patterns in __tests__/ directory.</standards>
+    <locations>__tests__/components/ for UI components, __tests__/services/ for business logic, __tests__/utils/ for validation utilities.</locations>
+    <ideas>- Test RSS URL format validation
+- Test RSS feed content validation
+- Test duplicate feed detection
+- Test form submission with valid/invalid URLs
+- Test error message display
+- Test success confirmation display
+- Test loading state transitions
+- Test database integration for feed storage
+- Test network error handling
+- Test accessibility compliance</ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,231 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>epic-3</epicId>
+    <storyId>3.4</storyId>
+    <title>Topic Review and Approval Interface</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-14T16:28:10.902Z</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/3-4-topic-review-and-approval-interface.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>to review and approve topic selections</iWant>
+    <soThat>I control what content gets generated</soThat>
+    <tasks>- [ ] Implement topic review dashboard UI
+  - [ ] Create topic list component with metadata display
+  - [ ] Add approval/rejection action buttons
+  - [ ] Implement priority adjustment controls
+  - [ ] Add filtering and search functionality
+- [ ] Build approval workflow backend
+  - [ ] Create topic approval API endpoints
+  - [ ] Implement database schema for approvals
+  - [ ] Add approval status tracking
+  - [ ] Integrate with existing topic data
+- [ ] Add bulk operations support
+  - [ ] Implement bulk approval/rejection
+  - [ ] Add bulk priority updates
+  - [ ] Create confirmation dialogs for bulk actions
+- [ ] Integrate with angle generation
+  - [ ] Display associated angles for each topic
+  - [ ] Show angle quality metrics
+  - [ ] Link angle data to approval decisions
+- [ ] Implement performance optimizations
+  - [ ] Add virtual scrolling for large topic lists
+  - [ ] Implement optimistic UI updates
+  - [ ] Add caching for topic metadata
+- [ ] Add comprehensive testing
+  - [ ] Unit tests for approval logic
+  - [ ] Integration tests for API endpoints
+  - [ ] Performance tests for large datasets
+  - [ ] Accessibility testing</tasks>
+  </story>
+
+  <acceptanceCriteria>- [ ] Display trending topics with context and metadata
+- [ ] Show topic priority scores and trend velocity
+- [ ] Allow individual topic approval/rejection
+- [ ] Support bulk approval/rejection operations
+- [ ] Enable priority level adjustments (high/medium/low)
+- [ ] Provide topic filtering and search capabilities
+- [ ] Display associated content angles for each topic
+- [ ] Show topic performance metrics and engagement potential
+- [ ] Integrate with trend detection results from Story 3-2
+- [ ] Connect with angle generation from Story 3-3
+- [ ] Persist approval decisions to database
+- [ ] Support real-time topic updates
+- [ ] Implement optimistic UI updates
+- [ ] Provide keyboard navigation and accessibility
+- [ ] Response time < 2 seconds for topic list loading
+- [ ] Support 100+ topics without performance degradation
+- [ ] Clear visual distinction between approved/rejected topics
+- [ ] Intuitive approval workflow with confirmation dialogs
+- [ ] Store topic approval status with timestamps
+- [ ] Track user approval decisions and patterns
+- [ ] Maintain topic priority assignments
+- [ ] Support topic categorization and tagging</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <entry>
+        <path>docs/epics.md</path>
+        <title>Neural Feed Studio - Epic Breakdown</title>
+        <section>Epic 3: Content Analysis & Topic Selection</section>
+        <snippet>Enable AI-powered analysis of RSS content to identify trending topics and content opportunities.</snippet>
+      </entry>
+      <entry>
+        <path>docs/sprint-artifacts/3-2-topic-trend-detection.md</path>
+        <title>Story 3.2: Topic Trend Detection</title>
+        <section>Technical Implementation</section>
+        <snippet>Provides trending topics data through Topic and TopicTrend models with velocity and momentum calculations.</snippet>
+      </entry>
+      <entry>
+        <path>docs/sprint-artifacts/3-3-content-angle-identification.md</path>
+        <title>Story 3.3: Content Angle Identification</title>
+        <section>Data Model</section>
+        <snippet>ContentAngle model provides angle suggestions with quality metrics (uniqueness, SEO potential, engagement).</snippet>
+      </entry>
+      <entry>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Frontend Architecture</section>
+        <snippet>Next.js App Router with Zustand state management, Tailwind CSS styling, shadcn/ui components.</snippet>
+      </entry>
+    </docs>
+    <code>
+      <entry>
+        <path>prisma/schema.prisma</path>
+        <kind>database-model</kind>
+        <symbol>Topic</symbol>
+        <lines>150-181</lines>
+        <reason>Core Topic model with trend relationships and approval tracking</reason>
+      </entry>
+      <entry>
+        <path>prisma/schema.prisma</path>
+        <kind>database-model</kind>
+        <symbol>TopicApproval</symbol>
+        <lines>340-374</lines>
+        <reason>Topic approval status and metadata storage</reason>
+      </entry>
+      <entry>
+        <path>prisma/schema.prisma</path>
+        <kind>database-model</kind>
+        <symbol>ContentAngle</symbol>
+        <lines>275-312</lines>
+        <reason>Content angle data for topic review display</reason>
+      </entry>
+      <entry>
+        <path>src/app/api/trends/route.ts</path>
+        <kind>api-endpoint</kind>
+        <symbol>GET /api/trends</symbol>
+        <lines>5-90</lines>
+        <reason>Existing trend data retrieval endpoint to integrate with</reason>
+      </entry>
+      <entry>
+        <path>src/app/api/trends/[topicId]/route.ts</path>
+        <kind>api-endpoint</kind>
+        <symbol>GET /api/trends/[topicId]</symbol>
+        <lines>11-75</lines>
+        <reason>Topic-specific trend data endpoint for detailed topic information</reason>
+      </entry>
+      <entry>
+        <path>src/services/analysis/trendAnalysisService.ts</path>
+        <kind>service</kind>
+        <symbol>TrendAnalysisService</symbol>
+        <lines>1-50</lines>
+        <reason>Core trend analysis service for topic data retrieval</reason>
+      </entry>
+    </code>
+    <dependencies>
+      <entry>
+        <ecosystem>node</ecosystem>
+        <package>@prisma/client</package>
+        <version>latest</version>
+        <reason>Database ORM for topic and approval data access</reason>
+      </entry>
+      <entry>
+        <ecosystem>node</ecosystem>
+        <package>next</package>
+        <version>14+</version>
+        <reason>React framework for building the approval interface</reason>
+      </entry>
+      <entry>
+        <ecosystem>node</ecosystem>
+        <package>zustand</package>
+        <version>latest</version>
+        <reason>State management for topic approval workflow</reason>
+      </entry>
+      <entry>
+        <ecosystem>node</ecosystem>
+        <package>@radix-ui/react-select</package>
+        <version>latest</version>
+        <reason>UI components for priority selection and filtering</reason>
+      </entry>
+      <entry>
+        <ecosystem>node</ecosystem>
+        <package>tailwindcss</package>
+        <version>latest</version>
+        <reason>Utility-first CSS framework for responsive design</reason>
+      </entry>
+    </dependencies>
+  </artifacts>
+
+  <constraints>Database: Must maintain referential integrity with existing topic data
+API: Follow RESTful conventions established in previous stories
+UI: Maintain consistency with existing design system (Tailwind + shadcn/ui)
+Performance: Support 100+ topics without degradation
+Accessibility: WCAG 2.1 AA compliance for approval interface
+State Management: Use Zustand stores for topic approval state
+Error Handling: Graceful degradation for API failures
+Caching: Implement optimistic updates for better UX</constraints>
+  <interfaces>
+    <entry>
+      <name>Topic Review API</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/topics/review</signature>
+      <path>src/app/api/topics/review/route.ts</path>
+    </entry>
+    <entry>
+      <name>Topic Approval API</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/topics/{topicId}/approve</signature>
+      <path>src/app/api/topics/[topicId]/approve/route.ts</path>
+    </entry>
+    <entry>
+      <name>Bulk Approval API</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/topics/bulk-approve</signature>
+      <path>src/app/api/topics/bulk-approve/route.ts</path>
+    </entry>
+    <entry>
+      <name>Topic Review Component</name>
+      <kind>React component</kind>
+      <signature>TopicReviewDashboard: React.FC<TopicReviewProps></signature>
+      <path>src/components/TopicReviewDashboard.tsx</path>
+    </entry>
+    <entry>
+      <name>Approval Store</name>
+      <kind>Zustand store</kind>
+      <signature>useApprovalStore: () => ApprovalStore</signature>
+      <path>src/stores/approvalStore.ts</path>
+    </entry>
+  </interfaces>
+  <tests>
+    <standards>Unit Tests: Jest with React Testing Library for components
+Integration Tests: API endpoint testing with Supertest
+E2E Tests: Playwright for critical user workflows
+Coverage: Maintain 80%+ test coverage
+Performance Tests: Response time validation under load
+Accessibility Tests: axe-core for WCAG compliance</standards>
+    <locations>src/__tests__/components/TopicReviewDashboard.test.tsx
+src/__tests__/api/topics/
+tests/integration/topic-approval.test.ts
+tests/e2e/topic-review-workflow.spec.ts</locations>
+    <ideas>- Unit test topic approval state transitions
+- Integration test approval API with database persistence
+- E2E test complete approval workflow from topic list to confirmation
+- Performance test with 100+ topics in review interface
+- Accessibility test for keyboard navigation and screen reader support
+- Error handling test for API failures during approval submission</ideas>
+  </tests>
+</story-context>

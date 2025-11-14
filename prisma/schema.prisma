@@ -1,0 +1,428 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "sqlite"
+    url      = "file:./dev.db"
+}
+
+model User {
+    id        String   @id @default(cuid())
+    email     String   @unique
+    name      String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    feeds    Feed[]
+    contents Content[]
+    settings UserSettings?
+
+    @@map("users")
+}
+
+model UserSettings {
+    id     String @id @default(cuid())
+    userId String @unique
+    user   User   @relation(fields: [userId], references: [id])
+
+    // AI preferences
+    defaultModel  String @default("llama2:7b")
+    defaultStyle  String @default("professional")
+    defaultLength String @default("medium")
+
+    // UI preferences
+    theme    String @default("light")
+    language String @default("en")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("user_settings")
+}
+
+model Feed {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
+
+    url         String
+    title       String?
+    description String?
+    category    String?
+    isActive    Boolean @default(true)
+
+    // Configuration settings
+    updateFrequency  String?   @default("daily")
+    keywordFilters   String?
+    contentFilters   String?
+    lastConfigUpdate DateTime?
+
+    // Fetch status and error tracking
+    lastFetched     DateTime?
+    lastFetchStatus String?
+    lastFetchError  String?
+    fetchRetryCount Int       @default(0)
+    healthScore     Float     @default(1.0)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    items FeedItem[]
+
+    @@unique([userId, url])
+    @@map("feeds")
+}
+
+model FeedItem {
+    id     String @id @default(cuid())
+    feedId String
+    feed   Feed   @relation(fields: [feedId], references: [id])
+
+    guid        String?   @unique
+    title       String
+    description String?
+    content     String?
+    link        String?
+    author      String?
+    publishedAt DateTime?
+
+    // Content processing
+    isRead      Boolean @default(false)
+    isProcessed Boolean @default(false)
+    contentHash String?
+
+    // RSS parsing metadata
+    categories   String?
+    mediaContent String?
+    wordCount    Int?
+    readingTime  Int?
+
+    createdAt       DateTime         @default(now())
+    updatedAt       DateTime         @updatedAt
+    contentAnalysis ContentAnalysis?
+
+    @@map("feed_items")
+}
+
+model Content {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
+
+    // Topic relationship for outline generation
+    topicId String?
+    topic   Topic?  @relation(fields: [topicId], references: [id])
+
+    title   String
+    content String
+    style   String
+    length  String
+
+    // Outline generation support
+    outline     String?
+    status      String  @default("draft") // draft, outline_generated, writing, editing, final
+    wordCount   Int?
+    readingTime Int?
+
+    // AI generation metadata
+    model       String
+    prompt      String?
+    generatedAt DateTime @default(now())
+
+    // Outline generation metadata
+    outlineGeneratedAt DateTime?
+    outlineModel       String?
+    outlinePrompt      String?
+    outlineConfidence  Float?
+
+    // Processing status
+    isPublished Boolean   @default(false)
+    publishedAt DateTime?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    sources         ContentSource[]
+    contentVersions ContentVersion[]
+
+    @@index([topicId])
+    @@index([status])
+    @@index([outlineGeneratedAt])
+    @@map("contents")
+}
+
+model ContentSource {
+    id        String  @id @default(cuid())
+    contentId String
+    content   Content @relation(fields: [contentId], references: [id])
+
+    url       String
+    title     String?
+    relevance Float?
+
+    @@map("content_sources")
+}
+
+model ContentVersion {
+    id        String  @id @default(cuid())
+    contentId String
+    content   Content @relation(fields: [contentId], references: [id])
+
+    // Version content
+    title          String
+    versionContent String
+    version        Int
+
+    // Change metadata
+    changeType  String // 'auto_save', 'manual_save', 'initial'
+    changeCount Int    @default(0)
+    wordCount   Int?
+    charCount   Int?
+
+    // User and timing
+    editedBy  String?
+    editedAt  DateTime @default(now())
+    sessionId String? // For grouping related edits
+
+    // Edit metadata
+    timeSpentMs Int? // Time spent editing this version
+    changes     String? // JSON array of change descriptions
+
+    createdAt DateTime @default(now())
+
+    @@index([contentId, version])
+    @@index([contentId, editedAt])
+    @@index([sessionId])
+    @@map("content_versions")
+}
+
+model Topic {
+    id          String  @id @default(cuid())
+    name        String
+    description String?
+    category    String?
+
+    // Hierarchical relationships
+    parentId String?
+    parent   Topic?  @relation("TopicHierarchy", fields: [parentId], references: [id])
+    children Topic[] @relation("TopicHierarchy")
+
+    // Topic metadata
+    keywords   String?
+    confidence Float   @default(0.0)
+    frequency  Int     @default(0)
+
+    // Analysis relationships
+    analyses        ContentAnalysis[]        @relation("TopicAnalyses")
+    primaryAnalyses ContentAnalysis[]        @relation("PrimaryTopic")
+    trends          TopicTrend[]
+    contentAngles   ContentAngle[]           @relation("TopicAngles")
+    angleRequests   AngleGenerationRequest[] @relation("TopicAngleRequests")
+    approvals       TopicApproval[]          @relation("TopicApprovals")
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    contents  Content[]
+
+    @@index([category])
+    @@index([frequency])
+    @@index([confidence])
+    @@map("topics")
+}
+
+model ContentAnalysis {
+    id         String   @id @default(cuid())
+    feedItemId String
+    feedItem   FeedItem @relation(fields: [feedItemId], references: [id])
+
+    // Analysis results
+    topics         Topic[] @relation("TopicAnalyses")
+    primaryTopicId String?
+    primaryTopic   Topic?  @relation("PrimaryTopic", fields: [primaryTopicId], references: [id])
+
+    // Content metrics
+    relevanceScore Float   @default(0.0)
+    sentiment      String?
+    readability    Float?
+    wordCount      Int?
+
+    // Analysis metadata
+    modelUsed      String?
+    promptVersion  String?
+    confidence     Float   @default(0.0)
+    processingTime Int?
+
+    // Status tracking
+    status       String  @default("pending")
+    errorMessage String?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([feedItemId])
+    @@index([status])
+    @@index([createdAt])
+    @@index([relevanceScore])
+    @@map("content_analyses")
+}
+
+model SystemLog {
+    id      String  @id @default(cuid())
+    level   String
+    message String
+    context String?
+
+    createdAt DateTime @default(now())
+
+    @@map("system_logs")
+}
+
+model TopicTrend {
+    id      String @id @default(cuid())
+    topicId String
+    topic   Topic  @relation(fields: [topicId], references: [id])
+
+    // Time-series data
+    timestamp      DateTime
+    frequency      Int
+    velocity       Float
+    momentum       Float
+    trendScore     Float
+    trendDirection String
+    confidence     Float
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([topicId, timestamp])
+    @@index([trendDirection])
+    @@index([trendScore])
+    @@index([timestamp])
+    @@map("topic_trends")
+}
+
+model TrendConfiguration {
+    id String @id @default(cuid())
+
+    // Analysis parameters
+    timeWindowHours     Int   @default(24)
+    velocityThreshold   Float @default(0.1)
+    momentumThreshold   Float @default(0.05)
+    minFrequency        Int   @default(3)
+    trendUpdateInterval Int   @default(300)
+
+    // Trend scoring weights
+    velocityWeight Float @default(0.4)
+    momentumWeight Float @default(0.4)
+    volumeWeight   Float @default(0.2)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("trend_configurations")
+}
+
+model ContentAngle {
+    id      String @id @default(cuid())
+    topicId String
+    topic   Topic  @relation("TopicAngles", fields: [topicId], references: [id])
+
+    // Angle content
+    title       String
+    description String
+    angle       String
+
+    // Quality metrics
+    uniquenessScore     Float  @default(0.0)
+    difficulty          String
+    targetAudience      String
+    seoPotential        Float  @default(0.0)
+    engagementPotential Float  @default(0.0)
+    marketSaturation    Float  @default(0.0)
+
+    // Metadata
+    keywords         String
+    usageCount       Int    @default(0)
+    performanceScore Float  @default(0.0)
+
+    // Freshness management
+    generatedAt DateTime @default(now())
+    expiresAt   DateTime
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@index([topicId])
+    @@index([uniquenessScore])
+    @@index([seoPotential])
+    @@index([engagementPotential])
+    @@index([expiresAt])
+    @@index([usageCount])
+    @@index([targetAudience])
+    @@map("content_angles")
+}
+
+model AngleGenerationRequest {
+    id      String @id @default(cuid())
+    topicId String
+    topic   Topic  @relation("TopicAngleRequests", fields: [topicId], references: [id])
+
+    // Request parameters
+    angleCount     Int     @default(5)
+    targetAudience String?
+    priority       String  @default("normal")
+
+    // Status tracking
+    status       String  @default("pending")
+    errorMessage String?
+
+    // Timing
+    processingTime Int?
+    createdAt      DateTime  @default(now())
+    completedAt    DateTime?
+
+    @@index([topicId])
+    @@index([status])
+    @@index([priority])
+    @@index([createdAt])
+    @@map("angle_generation_requests")
+}
+
+model TopicApproval {
+    id      String @id @default(cuid())
+    topicId String
+    topic   Topic  @relation("TopicApprovals", fields: [topicId], references: [id])
+
+    // Approval metadata
+    approvedBy    String  @default("system")
+    approvalLevel String  @default("pending")
+    priority      String  @default("normal")
+    reason        String?
+
+    // Content generation preferences
+    targetAudience     String?
+    contentStyle       String?
+    anglePreference    String?
+    customInstructions String?
+
+    // Tracking
+    approvalDate    DateTime?
+    rejectionReason String?
+    reviewNotes     String?
+    expiresAt       DateTime?
+    lastReviewedAt  DateTime?
+    reviewCount     Int       @default(0)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([topicId])
+    @@index([approvalLevel])
+    @@index([priority])
+    @@index([expiresAt])
+    @@index([createdAt])
+    @@map("topic_approvals")
+}

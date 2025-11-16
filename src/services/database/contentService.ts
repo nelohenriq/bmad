@@ -247,17 +247,26 @@ export class ContentService {
 
     // Transform the data to match FeedData interface
     // Note: New fields will be available after Prisma client regeneration
-    return feeds.map(feed => ({
-      ...feed,
-      updateFrequency: (feed as any).updateFrequency || 'daily',
-      keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
-      contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
-      lastConfigUpdate: (feed as any).lastConfigUpdate || null,
-    })) as FeedData[]
+    return feeds.map(feed => {
+      // Validate and normalize updateFrequency to ensure it matches the expected union type
+      const updateFrequency = (feed as any).updateFrequency || 'daily'
+      const validFrequencies = ['manual', 'hourly', 'daily', 'weekly'] as const
+      const normalizedFrequency = validFrequencies.includes(updateFrequency as any)
+        ? updateFrequency as 'manual' | 'hourly' | 'daily' | 'weekly'
+        : 'daily'
+
+      return {
+        ...feed,
+        updateFrequency: normalizedFrequency,
+        keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
+        contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
+        lastConfigUpdate: (feed as any).lastConfigUpdate || null,
+      }
+    }) as FeedData[]
   }
 
   async getFeedById(id: string) {
-    return prisma.feed.findUnique({
+    const feed = await prisma.feed.findUnique({
       where: { id },
       include: {
         items: {
@@ -266,6 +275,23 @@ export class ContentService {
         },
       },
     })
+
+    if (!feed) return null
+
+    // Validate and normalize updateFrequency to ensure it matches the expected union type
+    const updateFrequency = (feed as any).updateFrequency || 'daily'
+    const validFrequencies = ['manual', 'hourly', 'daily', 'weekly'] as const
+    const normalizedFrequency = validFrequencies.includes(updateFrequency as any)
+      ? updateFrequency as 'manual' | 'hourly' | 'daily' | 'weekly'
+      : 'daily'
+
+    return {
+      ...feed,
+      updateFrequency: normalizedFrequency,
+      keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
+      contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
+      lastConfigUpdate: (feed as any).lastConfigUpdate || null,
+    } as FeedData
   }
 
   async updateFeed(id: string, data: UpdateFeedData) {

@@ -6,11 +6,34 @@ import { FeedSettings } from '@/components/FeedSettings'
 import { FeedStatusIndicator } from '@/components/FeedStatusIndicator'
 import { FeedNotifications } from '@/components/FeedNotifications'
 import { FeedErrorHistory } from '@/components/FeedErrorHistory'
-import {
-  contentService,
-  FeedData,
-  UpdateFeedData,
-} from '@/services/database/contentService'
+// FeedData and UpdateFeedData types are now handled via API
+interface FeedData {
+  id: string
+  userId: string
+  url: string
+  title: string | null
+  description: string | null
+  category: string | null
+  isActive: boolean
+  updateFrequency?: 'manual' | 'hourly' | 'daily' | 'weekly' | null
+  keywordFilters?: string[] | null
+  contentFilters?: Record<string, any> | null
+  lastConfigUpdate?: Date | null
+  lastFetched: Date | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface UpdateFeedData {
+  title?: string
+  description?: string
+  category?: string
+  isActive?: boolean
+  updateFrequency?: 'manual' | 'hourly' | 'daily' | 'weekly'
+  keywordFilters?: string[]
+  contentFilters?: Record<string, any>
+  lastConfigUpdate?: Date
+}
 import { feedProcessor } from '@/services/rss/feedProcessor'
 import {
   Card,
@@ -57,7 +80,11 @@ export default function FeedsPage() {
   const loadFeeds = async () => {
     try {
       setLoading(true)
-      const userFeeds = await contentService.getUserFeeds(userId)
+      const response = await fetch(`/api/feeds?userId=${userId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch feeds')
+      }
+      const userFeeds = await response.json()
       setFeeds(userFeeds)
       setError(null)
     } catch (err) {
@@ -80,7 +107,12 @@ export default function FeedsPage() {
     if (!confirm('Are you sure you want to delete this feed?')) return
 
     try {
-      await contentService.deleteFeed(feedId)
+      const response = await fetch(`/api/feeds/${feedId}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        throw new Error('Failed to delete feed')
+      }
       loadFeeds() // Reload feeds after deletion
     } catch (err) {
       setError('Failed to delete feed')
@@ -93,7 +125,16 @@ export default function FeedsPage() {
     currentStatus: boolean
   ) => {
     try {
-      await contentService.updateFeed(feedId, { isActive: !currentStatus })
+      const response = await fetch(`/api/feeds/${feedId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isActive: !currentStatus }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to update feed status')
+      }
       loadFeeds() // Reload feeds after status change
     } catch (err) {
       setError('Failed to update feed status')
@@ -111,7 +152,17 @@ export default function FeedsPage() {
     try {
       // Update all feeds with the new status
       await Promise.all(
-        feeds.map((feed) => contentService.updateFeed(feed.id, { isActive }))
+        feeds.map((feed) =>
+          fetch(`/api/feeds/${feed.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ isActive }),
+          }).then((res) => {
+            if (!res.ok) throw new Error('Failed to update feed')
+          })
+        )
       )
       loadFeeds() // Reload feeds after bulk update
     } catch (err) {
@@ -177,11 +228,20 @@ export default function FeedsPage() {
     if (!editingFeed) return
 
     try {
-      await contentService.updateFeed(editingFeed, {
-        title: editForm.title || undefined,
-        description: editForm.description || undefined,
-        category: editForm.category || undefined,
+      const response = await fetch(`/api/feeds/${editingFeed}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: editForm.title || undefined,
+          description: editForm.description || undefined,
+          category: editForm.category || undefined,
+        }),
       })
+      if (!response.ok) {
+        throw new Error('Failed to update feed')
+      }
       setEditingFeed(null)
       loadFeeds() // Reload feeds after edit
     } catch (err) {
@@ -197,7 +257,17 @@ export default function FeedsPage() {
 
   const handleSaveSettings = async (feedId: string, data: UpdateFeedData) => {
     try {
-      await contentService.updateFeed(feedId, data)
+      const response = await fetch(`/api/feeds/${feedId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update feed settings')
+      }
       loadFeeds() // Reload feeds after settings update
     } catch (err) {
       setError('Failed to update feed settings')

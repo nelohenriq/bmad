@@ -15,7 +15,6 @@ import {
   CardTitle,
 } from './ui/card'
 import { rssService } from '@/services/rssService'
-import { contentService } from '@/services/database/contentService'
 import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 
 const feedSchema = z.object({
@@ -116,13 +115,24 @@ export function FeedAdditionForm({
     setIsSubmitting(true)
 
     try {
-      await contentService.addFeed({
-        userId,
-        url: data.url,
-        category: data.category || undefined,
-        title: validationResult.feedTitle,
-        description: validationResult.feedDescription,
+      const response = await fetch('/api/feeds', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          url: data.url,
+          category: data.category || undefined,
+          title: validationResult.feedTitle,
+          description: validationResult.feedDescription,
+        }),
       })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to add feed')
+      }
 
       // Reset form and state
       reset()

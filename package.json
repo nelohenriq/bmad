@@ -12,7 +12,8 @@
         "test:diagnostics": "node scripts/test-diagnostics.js",
         "test:fix": "node scripts/test-fixer.js",
         "test:fix-and-run": "npm run test:fix && npm test",
-        "test:run": "node scripts/test-runner.js"
+        "test:run": "node scripts/test-runner.js",
+        "db:seed": "node prisma/seed.js"
     },
     "dependencies": {
         "@hookform/resolvers": "^5.2.2",

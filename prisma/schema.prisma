@@ -11,6 +11,8 @@ model User {
     id        String   @id @default(cuid())
     email     String   @unique
     name      String?
+    bio       String?
+    avatar    String?
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
@@ -18,6 +20,8 @@ model User {
     feeds    Feed[]
     contents Content[]
     settings UserSettings?
+    preferences UserPreference[]
+    sessions UserSession[]
     feedbacks ContentFeedback[]
     voiceProfiles VoiceProfile[]
 
@@ -42,6 +46,42 @@ model UserSettings {
     updatedAt DateTime @updatedAt
 
     @@map("user_settings")
+}
+
+model UserPreference {
+    id       String   @id @default(cuid())
+    userId   String
+    user     User     @relation(fields: [userId], references: [id])
+
+    key      String   // Preference key (e.g., 'theme', 'notifications.enabled')
+    value    String   // Preference value (JSON string for complex values)
+    category String?  // Category for grouping (e.g., 'ui', 'ai', 'privacy')
+    isEncrypted Boolean @default(false) // Whether the value is encrypted
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([userId, key])
+    @@index([userId, category])
+    @@map("user_preferences")
+}
+
+model UserSession {
+    id        String   @id @default(cuid())
+    userId    String
+    user      User     @relation(fields: [userId], references: [id])
+
+    token     String   @unique // Session token
+    expiresAt DateTime // When the session expires
+    ipAddress String?  // IP address for security tracking
+    userAgent String?  // User agent string
+
+    createdAt DateTime @default(now())
+
+    @@index([userId])
+    @@index([token])
+    @@index([expiresAt])
+    @@map("user_sessions")
 }
 
 model Feed {
@@ -151,6 +191,10 @@ model Content {
     sources         ContentSource[]
     contentVersions ContentVersion[]
     feedbacks       ContentFeedback[]
+    consistencyChecks ConsistencyCheck[]
+    factChecks      FactCheckResult[]
+    citations       Citation[]
+    exports         ContentExport[]
 
     @@index([topicId])
     @@index([status])
@@ -483,6 +527,9 @@ model VoiceProfile {
   // Relations
   user     User          @relation(fields: [userId], references: [id])
   samples  VoiceSample[]
+  consistencyChecks ConsistencyCheck[]
+  consistencySettings ConsistencySettings?
+  tuningSessions VoiceTuningSession[]
 
   @@map("voice_profiles")
 }
@@ -500,4 +547,218 @@ model VoiceSample {
   profile VoiceProfile @relation(fields: [profileId], references: [id])
 
   @@map("voice_samples")
+}
+
+model ConsistencyCheck {
+  id          String   @id @default(cuid())
+  contentId   String?
+  profileId   String
+  consistencyScore Float
+  deviationDetails String? // JSON array of VoiceDeviation
+  timestamp   DateTime @default(now())
+  autoCorrected Boolean @default(false)
+  userFeedback String? // JSON
+
+  // Relations
+  profile VoiceProfile @relation(fields: [profileId], references: [id])
+  content Content?     @relation(fields: [contentId], references: [id])
+
+  @@index([profileId, timestamp])
+  @@index([contentId])
+  @@map("consistency_checks")
+}
+
+model ConsistencySettings {
+  id          String   @id @default(cuid())
+  profileId   String   @unique
+  threshold   Float    @default(0.85) // 0.0 to 1.0
+  alertOnDeviation Boolean @default(true)
+  autoCorrectMinor Boolean @default(false)
+  notificationPreferences String? // JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  profile VoiceProfile @relation(fields: [profileId], references: [id])
+
+  @@map("consistency_settings")
+}
+
+model VoiceTuningSession {
+  id          String   @id @default(cuid())
+  profileId   String
+  userId      String
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+
+  // Parameters
+  initialFormalityLevel    Int
+  initialComplexityLevel   Int
+  initialEngagementLevel   Int
+  finalFormalityLevel      Int?
+  finalComplexityLevel     Int?
+  finalEngagementLevel     Int?
+
+  // Metadata
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  profile     VoiceProfile        @relation(fields: [profileId], references: [id])
+  adjustments ParameterAdjustment[]
+  previews    VoiceTuningPreview[]
+  feedback    TuningFeedback?
+
+  @@index([profileId, startTime])
+  @@map("voice_tuning_sessions")
+}
+
+model ParameterAdjustment {
+  id          String   @id @default(cuid())
+  sessionId   String
+  parameter   String   // 'formalityLevel', 'complexityLevel', 'engagementLevel'
+  previousValue Int
+  newValue    Int
+  timestamp   DateTime @default(now())
+  confidence  Float    @default(0.8)
+
+  // Relations
+  session VoiceTuningSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId, timestamp])
+  @@map("parameter_adjustments")
+}
+
+model VoiceTuningPreview {
+  id          String   @id @default(cuid())
+  sessionId   String
+  timestamp   DateTime @default(now())
+
+  // Parameters at this point
+  formalityLevel  Int
+  complexityLevel Int
+  engagementLevel Int
+
+  // Analysis results
+  analysisResult String? // JSON VoiceAnalysisResult
+
+  // Relations
+  session VoiceTuningSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId, timestamp])
+  @@map("voice_tuning_previews")
+}
+
+model TuningFeedback {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  userId      String
+
+  // Feedback data
+  satisfactionScore Int     // 1-5
+  usabilityRating   Int     // 1-5
+  suggestions       String? // JSON array
+  completed         Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  session VoiceTuningSession @relation(fields: [sessionId], references: [id])
+
+  @@map("tuning_feedbacks")
+}
+
+model FactCheckResult {
+  id          String   @id @default(cuid())
+  contentId   String
+  sourceUrl   String
+  claim       String
+  verification String  // 'verified', 'questionable', 'inconsistent'
+  confidence  Float
+  explanation String
+  suggestedCorrection String?
+  timestamp   DateTime @default(now())
+
+  // Relations
+  content Content @relation(fields: [contentId], references: [id])
+
+  @@index([contentId])
+  @@map("fact_check_results")
+}
+
+model Citation {
+  id          String   @id @default(cuid())
+  contentId   String
+  sourceUrl   String
+  title       String?
+  accessDate  DateTime
+  citationStyle String
+  formattedCitation String
+
+  // Relations
+  content Content @relation(fields: [contentId], references: [id])
+
+  @@index([contentId])
+  @@map("citations")
+}
+
+model ContentExport {
+   id          String   @id @default(cuid())
+   contentId   String
+   format      String   // 'markdown' | 'html' | 'pdf'
+   fileName    String
+   fileSize    Int
+   exportedAt  DateTime @default(now())
+   downloadUrl String?
+
+   // Relations
+   content Content @relation(fields: [contentId], references: [id])
+
+   @@index([contentId])
+   @@map("content_exports")
+}
+
+model AnalyticsEvent {
+   id         String   @id @default(cuid())
+   userId     String?
+   eventType  String   // 'content_created', 'feed_monitored', 'ai_used', 'published', etc.
+   eventData  String?  // JSON string with event-specific data
+   timestamp  DateTime @default(now())
+   sessionId  String?
+
+   @@index([userId])
+   @@index([eventType])
+   @@index([timestamp])
+   @@index([sessionId])
+   @@map("analytics_events")
+}
+
+model AnalyticsMetric {
+   id         String   @id @default(cuid())
+   userId     String?
+   metricType String   // 'content_created_count', 'ai_usage_time', 'publishing_success_rate', etc.
+   value      Float    // Numeric value for the metric
+   metadata   String?  // JSON string with additional metric context
+   date       DateTime // Date for the metric (usually start of day/week/month)
+
+   @@index([userId])
+   @@index([metricType])
+   @@index([date])
+   @@map("analytics_metrics")
+}
+
+model AnalyticsCache {
+   id        String    @id @default(cuid())
+   userId    String?
+   cacheKey  String    // Unique key for cached data
+   data      String    // JSON string with cached analytics data
+   expiresAt DateTime? // When the cache expires
+   createdAt DateTime  @default(now())
+   updatedAt DateTime  @updatedAt
+
+   @@unique([userId, cacheKey])
+   @@index([userId])
+   @@index([expiresAt])
+   @@map("analytics_cache")
 }

@@ -1,13 +1,8 @@
-// Mock rss-parser before importing anything
-const mockParseURL = jest.fn()
-jest.mock('rss-parser', () => {
-  return jest.fn().mockImplementation(() => ({
-    parseURL: mockParseURL
-  }))
-})
+// Mock fetch
+const mockFetch = jest.fn()
+global.fetch = mockFetch
 
 import { rssService } from '../../src/services/rssService'
-import Parser from 'rss-parser'
 
 describe('RSSService', () => {
   beforeEach(() => {
@@ -29,7 +24,7 @@ describe('RSSService', () => {
 
   describe('validateFeed', () => {
     beforeEach(() => {
-      mockParseURL.mockClear()
+      mockFetch.mockClear()
     })
 
     it('should return error for invalid URL', async () => {
@@ -39,7 +34,10 @@ describe('RSSService', () => {
     })
 
     it('should handle network timeouts', async () => {
-      mockParseURL.mockRejectedValue(new Error('timeout'))
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ isValid: false, error: 'Feed took too long to respond. Please try again later.' })
+      })
 
       const result = await rssService.validateFeed('http://example.com/feed.xml')
       expect(result.isValid).toBe(false)
@@ -47,7 +45,10 @@ describe('RSSService', () => {
     })
 
     it('should handle 404 errors', async () => {
-      mockParseURL.mockRejectedValue(new Error('status code 404'))
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ isValid: false, error: 'Feed not found at the provided URL.' })
+      })
 
       const result = await rssService.validateFeed('http://example.com/feed.xml')
       expect(result.isValid).toBe(false)
@@ -55,10 +56,9 @@ describe('RSSService', () => {
     })
 
     it('should validate successful RSS feeds', async () => {
-      mockParseURL.mockResolvedValue({
-        title: 'Test Feed',
-        description: 'A test RSS feed',
-        items: []
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ isValid: true, feedTitle: 'Test Feed', feedDescription: 'A test RSS feed' })
       })
 
       const result = await rssService.validateFeed('http://example.com/feed.xml')
@@ -68,43 +68,23 @@ describe('RSSService', () => {
     })
 
     it('should reject feeds without titles', async () => {
-      mockParseURL.mockResolvedValue({
-        title: '',
-        description: 'A test RSS feed',
-        items: []
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ isValid: false, error: 'Feed does not contain a valid title.' })
       })
 
       const result = await rssService.validateFeed('http://example.com/feed.xml')
       expect(result.isValid).toBe(false)
       expect(result.error).toContain('does not contain a valid title')
     })
-  })
 
-  describe('getFeedMetadata', () => {
-    beforeEach(() => {
-      mockParseURL.mockClear()
-    })
+    it('should handle fetch errors', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'))
 
-    it('should return feed metadata for valid feeds', async () => {
-      mockParseURL.mockResolvedValue({
-        title: 'Test Feed',
-        description: 'A test RSS feed',
-        items: [{}, {}, {}] // 3 items
-      })
-
-      const result = await rssService.getFeedMetadata('http://example.com/feed.xml')
-      expect(result).toEqual({
-        title: 'Test Feed',
-        description: 'A test RSS feed',
-        items: 3
-      })
-    })
-
-    it('should return null for invalid feeds', async () => {
-      mockParseURL.mockRejectedValue(new Error('Network error'))
-
-      const result = await rssService.getFeedMetadata('http://example.com/feed.xml')
-      expect(result).toBeNull()
+      const result = await rssService.validateFeed('http://example.com/feed.xml')
+      expect(result.isValid).toBe(false)
+      expect(result.error).toContain('Failed to validate feed')
     })
   })
+
 })

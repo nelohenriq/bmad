@@ -1,4 +1,3 @@
-import Parser from 'rss-parser'
 
 export interface FeedValidationResult {
   isValid: boolean
@@ -19,15 +18,8 @@ export interface AddFeedResponse {
 }
 
 export class RSSService {
-  private parser: Parser
-
   constructor() {
-    this.parser = new Parser({
-      timeout: 10000, // 10 second timeout
-      headers: {
-        'User-Agent': 'Neural Feed Studio/1.0'
-      }
-    })
+    // Parser moved to server-side API
   }
 
   /**
@@ -54,75 +46,32 @@ export class RSSService {
     }
 
     try {
-      const feed = await this.parser.parseURL(url)
+      const response = await fetch('/api/rss/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      })
 
-      if (!feed.title || feed.title.trim() === '') {
+      if (!response.ok) {
         return {
           isValid: false,
-          error: 'Feed does not contain a valid title.'
+          error: 'Failed to validate feed. Please try again.'
         }
       }
 
-      return {
-        isValid: true,
-        feedTitle: feed.title,
-        feedDescription: feed.description
-      }
+      const result: FeedValidationResult = await response.json()
+      return result
     } catch (error) {
       console.error('RSS validation error:', error)
-
-      if (error instanceof Error) {
-        if (error.message.includes('timeout')) {
-          return {
-            isValid: false,
-            error: 'Feed took too long to respond. Please try again later.'
-          }
-        }
-
-        if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-          return {
-            isValid: false,
-            error: 'Unable to connect to the feed URL. Please check the URL and try again.'
-          }
-        }
-
-        if (error.message.includes('status code 404')) {
-          return {
-            isValid: false,
-            error: 'Feed not found at the provided URL.'
-          }
-        }
-
-        if (error.message.includes('status code 403')) {
-          return {
-            isValid: false,
-            error: 'Access to the feed is forbidden.'
-          }
-        }
-      }
-
       return {
         isValid: false,
-        error: 'Invalid RSS feed format or unable to parse feed.'
+        error: 'Failed to validate feed. Please try again.'
       }
     }
   }
 
-  /**
-   * Extracts feed metadata without storing it
-   */
-  async getFeedMetadata(url: string): Promise<{ title?: string; description?: string; items?: number } | null> {
-    try {
-      const feed = await this.parser.parseURL(url)
-      return {
-        title: feed.title,
-        description: feed.description,
-        items: feed.items?.length || 0
-      }
-    } catch {
-      return null
-    }
-  }
 }
 
 export const rssService = new RSSService()

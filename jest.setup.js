@@ -1,4 +1,45 @@
+// Mock logger
+jest.mock('@/lib/logger', () => ({
+  default: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  }
+}))
+
+// Mock Prisma
+export const mockPrisma = {
+  platform: {
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn()
+  },
+  publishingJob: {
+    create: jest.fn(),
+    update: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn()
+  },
+  content: {
+    findUnique: jest.fn()
+  },
+  contentExport: {
+    create: jest.fn(),
+    findMany: jest.fn()
+  }
+}
+
+jest.mock('@prisma/client', () => ({
+  PrismaClient: jest.fn().mockImplementation(() => mockPrisma)
+}))
+
 import '@testing-library/jest-dom'
+
+// Set up environment variables for tests
+process.env.PUBLISHING_ENCRYPTION_KEY = 'test-encryption-key-for-jest'
+process.env.PUBLISHING_ENCRYPTION_SALT = 'test-encryption-salt-for-jest'
 
 // Mock Next.js Request and Response
 global.Response = class Response {

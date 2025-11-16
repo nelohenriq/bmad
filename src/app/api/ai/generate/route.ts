@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { aiService, ContentGenerationOptions } from '@/services/ai/aiService'
+import logger from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
+  let options: ContentGenerationOptions | undefined
+
   try {
     // Initialize AI service if not already done
     await aiService.initialize()
@@ -16,7 +19,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const options: ContentGenerationOptions = {
+    options = {
       topic,
       style: style || 'professional',
       length: length || 'medium',
@@ -32,17 +35,22 @@ export async function POST(request: NextRequest) {
       generatedAt: new Date().toISOString()
     })
 
-  } catch (error) {
-    console.error('AI generation error:', error)
+   } catch (error) {
+     logger.error('AI generation error', {
+       error: error instanceof Error ? error.message : 'Unknown error',
+       stack: error instanceof Error ? error.stack : undefined,
+       topic: options?.topic,
+       style: options?.style
+     })
 
-    return NextResponse.json(
-      {
-        error: 'Failed to generate content',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
-  }
+     return NextResponse.json(
+       {
+         error: 'Failed to generate content',
+         details: error instanceof Error ? error.message : 'Unknown error'
+       },
+       { status: 500 }
+     )
+   }
 }
 
 export async function GET() {

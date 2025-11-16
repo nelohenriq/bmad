@@ -10,12 +10,22 @@ module.exports = {
   	extend: {
   		colors: {
   			primary: {
-  				'50': '#eff6ff',
-  				'500': '#3b82f6',
-  				'600': '#2563eb',
-  				'900': '#1e3a8a',
+  				50: 'rgb(var(--color-primary-50) / <alpha-value>)',
+  				100: 'rgb(var(--color-primary-100) / <alpha-value>)',
+  				500: 'rgb(var(--color-primary-500) / <alpha-value>)',
+  				600: 'rgb(var(--color-primary-600) / <alpha-value>)',
+  				700: 'rgb(var(--color-primary-700) / <alpha-value>)',
+  				900: 'rgb(var(--color-primary-900) / <alpha-value>)',
   				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'
+  			},
+  			neutral: {
+  				50: 'rgb(var(--color-neutral-50) / <alpha-value>)',
+  				100: 'rgb(var(--color-neutral-100) / <alpha-value>)',
+  				200: 'rgb(var(--color-neutral-200) / <alpha-value>)',
+  				500: 'rgb(var(--color-neutral-500) / <alpha-value>)',
+  				600: 'rgb(var(--color-neutral-600) / <alpha-value>)',
+  				900: 'rgb(var(--color-neutral-900) / <alpha-value>)',
   			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

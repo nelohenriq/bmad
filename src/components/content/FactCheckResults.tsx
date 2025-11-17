@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { FactCheckResult, FactCheckReview } from '@/types/voice-consistency'
 
 interface FactCheckResultsProps {
@@ -12,11 +12,7 @@ export function FactCheckResults({ contentId }: FactCheckResultsProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadFactCheckResults()
-  }, [contentId])
-
-  const loadFactCheckResults = async () => {
+  const loadFactCheckResults = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(`/api/content/${contentId}/fact-check`)
@@ -30,7 +26,11 @@ export function FactCheckResults({ contentId }: FactCheckResultsProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [contentId])
+
+  useEffect(() => {
+    loadFactCheckResults()
+  }, [loadFactCheckResults])
 
   const handleReview = async (resultId: string, verification: 'verified' | 'questionable' | 'inconsistent', notes?: string) => {
     try {

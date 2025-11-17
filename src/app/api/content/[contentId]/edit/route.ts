@@ -18,10 +18,10 @@ const editContentSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { contentId: string } }
+  context: any
 ) {
   try {
-    const contentId = params.contentId;
+    const { contentId } = context.params;
 
     const content = await prisma.content.findUnique({
       where: { id: contentId },
@@ -55,10 +55,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { contentId: string } }
+  context: any
 ) {
   try {
-    const contentId = params.contentId;
+    const { contentId } = context.params;
     const body = await request.json();
 
     const validatedData = editContentSchema.parse(body);

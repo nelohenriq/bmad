@@ -3,13 +3,10 @@ import { VoiceConsistencyService } from '@/services/voice/voiceConsistencyServic
 
 const consistencyService = new VoiceConsistencyService()
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { profileId: string } }
-) {
+export async function PUT(request: NextRequest, context: any) {
   try {
-    const { profileId } = params
-    
+    const { profileId } = context.params
+
     if (!profileId) {
       return NextResponse.json(
         { error: 'Profile ID is required' },
@@ -18,11 +15,11 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { 
-      threshold, 
-      alertOnDeviation, 
-      autoCorrectMinor, 
-      notificationPreferences 
+    const {
+      threshold,
+      alertOnDeviation,
+      autoCorrectMinor,
+      notificationPreferences
     } = body
 
     // Validate threshold
@@ -59,9 +56,9 @@ export async function PUT(
 
   } catch (error) {
     console.error('Voice consistency settings update error:', error)
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-    
+
     if (errorMessage.includes('Voice profile')) {
       return NextResponse.json(
         { error: 'Voice profile not found' },
@@ -76,13 +73,10 @@ export async function PUT(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { profileId: string } }
-) {
+export async function GET(request: NextRequest, context: any) {
   try {
-    const { profileId } = params
-    
+    const { profileId } = context.params
+
     if (!profileId) {
       return NextResponse.json(
         { error: 'Profile ID is required' },
@@ -102,9 +96,9 @@ export async function GET(
 
   } catch (error) {
     console.error('Voice consistency settings retrieval error:', error)
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-    
+
     if (errorMessage.includes('Voice profile')) {
       return NextResponse.json(
         { error: 'Voice profile not found' },

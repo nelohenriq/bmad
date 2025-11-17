@@ -501,36 +501,127 @@ export class AnalyticsService {
   }
 
   private async aggregateDashboardData(userId: string | undefined, timeRange: TimeRange): Promise<DashboardData> {
-    // This would aggregate all the metrics into dashboard format
-    // For now, return a basic structure - will be expanded
-    return {
-      contentCreation: {
-        totalContent: 0,
-        contentByDate: [],
-        averageLength: 0,
-        topTopics: [],
-        contentTypes: []
-      },
-      rssMonitoring: {
-        totalFeeds: 0,
-        monitoringFrequency: 0,
-        successRate: 0,
-        newContentDiscovered: 0,
-        feedHealth: []
-      },
-      aiUsage: {
-        totalRequests: 0,
-        averageResponseTime: 0,
-        successRate: 0,
-        modelUsage: [],
-        tokenUsage: 0
-      },
-      publishing: {
-        totalPublished: 0,
-        successRate: 0,
-        averagePublishTime: 0,
-        platformPerformance: [],
-        publishingTrends: []
+    try {
+      // Get real data from database
+      const [contentStats, feedStats, feedItems] = await Promise.all([
+        prisma.content.aggregate({
+          where: {
+            userId,
+            createdAt: { gte: timeRange.start, lte: timeRange.end }
+          },
+          _count: { id: true },
+          _avg: { wordCount: true }
+        }),
+        prisma.feed.aggregate({
+          where: { userId },
+          _count: { id: true }
+        }),
+        prisma.feedItem.findMany({
+          where: {
+            feed: { userId },
+            createdAt: { gte: timeRange.start, lte: timeRange.end }
+          },
+          include: { feed: true },
+          orderBy: { createdAt: 'desc' },
+          take: 100
+        })
+      ])
+
+      // Calculate content by date
+      const contentByDateMap = new Map<string, number>()
+      const allContent = await prisma.content.findMany({
+        where: {
+          userId,
+          createdAt: { gte: timeRange.start, lte: timeRange.end }
+        },
+        select: { createdAt: true }
+      })
+
+      allContent.forEach(content => {
+        const date = content.createdAt.toISOString().split('T')[0]
+        contentByDateMap.set(date, (contentByDateMap.get(date) || 0) + 1)
+      })
+
+      const contentByDate = Array.from(contentByDateMap.entries())
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+
+      // Get feed health
+      const feedHealth = await prisma.feed.findMany({
+        where: { userId },
+        select: { title: true, healthScore: true }
+      })
+
+      const validHealthScores = feedHealth.map(f => f.healthScore).filter(h => h !== null && h !== undefined)
+      const averageHealth = validHealthScores.length > 0
+        ? validHealthScores.reduce((sum, score) => sum + score, 0) / validHealthScores.length
+        : 0
+
+      return {
+        contentCreation: {
+          totalContent: contentStats._count.id,
+          contentByDate,
+          averageLength: contentStats._avg.wordCount || 0,
+          topTopics: [], // Would need topic analysis
+          contentTypes: [] // Would need content type analysis
+        },
+        rssMonitoring: {
+          totalFeeds: feedStats._count.id,
+          monitoringFrequency: 0, // Would need to calculate from events
+          successRate: averageHealth * 100,
+          newContentDiscovered: feedItems.length,
+          feedHealth: feedHealth.map(feed => ({
+            feed: feed.title || 'Unknown',
+            health: (feed.healthScore || 0) * 100
+          }))
+        },
+        aiUsage: {
+          totalRequests: 0, // Would need AI usage tracking
+          averageResponseTime: 0,
+          successRate: 0,
+          modelUsage: [],
+          tokenUsage: 0
+        },
+        publishing: {
+          totalPublished: 0, // Would need publishing tracking
+          successRate: 0,
+          averagePublishTime: 0,
+          platformPerformance: [],
+          publishingTrends: []
+        }
+      }
+    } catch (error) {
+      console.error('Failed to aggregate dashboard data:', error)
+      // Return empty data on error
+      return {
+        contentCreation: {
+          totalContent: 0,
+          contentByDate: [],
+          averageLength: 0,
+          topTopics: [],
+          contentTypes: []
+        },
+        rssMonitoring: {
+          totalFeeds: 0,
+          monitoringFrequency: 0,
+          successRate: 0,
+          newContentDiscovered: 0,
+          feedHealth: []
+        },
+        aiUsage: {
+          totalRequests: 0,
+          averageResponseTime: 0,
+          successRate: 0,
+          modelUsage: [],
+          tokenUsage: 0
+        },
+        publishing: {
+          totalPublished: 0,
+          successRate: 0,
+          averagePublishTime: 0,
+          platformPerformance: [],
+          publishingTrends: []
+        }
       }
     }
   }

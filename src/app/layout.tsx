@@ -3,6 +3,7 @@ import './globals.css'
 import { Navigation } from '@/components/Navigation'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import { ServiceWorkerProvider } from '@/components/ServiceWorkerProvider'
+import { Toaster } from '@/components/ui/toaster'
 
 export const metadata: Metadata = {
   title: 'Neural Feed Studio',
@@ -30,6 +31,7 @@ export default function RootLayout({
             <main id="main-content" tabIndex={-1}>
               {children}
             </main>
+            <Toaster />
           </ThemeProvider>
         </ServiceWorkerProvider>
       </body>

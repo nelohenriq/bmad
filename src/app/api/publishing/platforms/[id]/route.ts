@@ -22,12 +22,9 @@ const updatePlatformSchema = z.object({
   isActive: z.boolean().optional()
 })
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, context: any) {
   try {
-    const id = params.id
+    const id = context.params.id
     const body = await request.json()
     const updates = updatePlatformSchema.parse(body)
 
@@ -49,12 +46,9 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, context: any) {
   try {
-    const id = params.id
+    const id = context.params.id
     await publishingService.deletePlatform(id)
     return NextResponse.json({ message: 'Platform deleted successfully' })
   } catch (error) {

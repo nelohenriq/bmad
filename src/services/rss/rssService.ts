@@ -47,17 +47,38 @@ export class RSSService {
   }
 
   /**
+   * Resolve redirects to get the final URL
+   */
+  private async resolveRedirects(url: string): Promise<string> {
+    try {
+      const response = await fetch(url, {
+        method: 'HEAD',
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Neural Feed Studio/1.0 (https://github.com/bmad/neural-feed-studio)'
+        }
+      })
+      return response.url
+    } catch {
+      return url // If redirect resolution fails, use original URL
+    }
+  }
+
+  /**
    * Fetch and parse an RSS feed with retry logic
    */
   async fetchFeed(url: string, maxRetries = 3): Promise<FetchResult> {
     let lastError: string = ''
     let totalDuration = 0
 
+    // First, resolve any redirects
+    const finalUrl = await this.resolveRedirects(url)
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const startTime = Date.now()
 
       try {
-        const feed = await this.parser.parseURL(url)
+        const feed = await this.parser.parseURL(finalUrl)
 
         const result: FetchResult = {
           success: true,

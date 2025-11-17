@@ -63,6 +63,17 @@ function BarChart({ data, width, height }: { data: ChartData; width: number; hei
   const chartWidth = width - padding * 2
   const chartHeight = height - padding * 2
 
+  // Handle empty data
+  if (!data.datasets[0] || data.datasets[0].data.length === 0 || data.labels.length === 0) {
+    return (
+      <svg width={width} height={height} className="border rounded">
+        <text x={width / 2} y={height / 2} textAnchor="middle" className="text-gray-500">
+          No data available
+        </text>
+      </svg>
+    )
+  }
+
   const maxValue = Math.max(...data.datasets[0].data)
   const barWidth = chartWidth / data.labels.length
 
@@ -83,7 +94,7 @@ function BarChart({ data, width, height }: { data: ChartData; width: number; hei
 
       {/* Bars */}
       {data.datasets[0].data.map((value, index) => {
-        const barHeight = (value / maxValue) * chartHeight
+        const barHeight = maxValue > 0 ? (value / maxValue) * chartHeight : 0
         const x = padding + index * barWidth + barWidth * 0.1
         const y = padding + chartHeight - barHeight
 
@@ -121,10 +132,23 @@ function LineChart({ data, width, height }: { data: ChartData; width: number; he
   const chartWidth = width - padding * 2
   const chartHeight = height - padding * 2
 
+  // Handle empty data
+  if (!data.datasets[0] || data.datasets[0].data.length === 0 || data.labels.length === 0) {
+    return (
+      <svg width={width} height={height} className="border rounded">
+        <text x={width / 2} y={height / 2} textAnchor="middle" className="text-gray-500">
+          No data available
+        </text>
+      </svg>
+    )
+  }
+
   const maxValue = Math.max(...data.datasets[0].data)
   const points = data.datasets[0].data.map((value, index) => {
-    const x = padding + (index / (data.labels.length - 1)) * chartWidth
-    const y = padding + chartHeight - (value / maxValue) * chartHeight
+    // Handle single data point case
+    const divisor = Math.max(data.labels.length - 1, 1)
+    const x = padding + (index / divisor) * chartWidth
+    const y = padding + chartHeight - (maxValue > 0 ? (value / maxValue) * chartHeight : 0)
     return `${x},${y}`
   }).join(' ')
 
@@ -167,8 +191,10 @@ function LineChart({ data, width, height }: { data: ChartData; width: number; he
 
       {/* Data points */}
       {data.datasets[0].data.map((value, index) => {
-        const x = padding + (index / (data.labels.length - 1)) * chartWidth
-        const y = padding + chartHeight - (value / maxValue) * chartHeight
+        // Handle single data point case
+        const divisor = Math.max(data.labels.length - 1, 1)
+        const x = padding + (index / divisor) * chartWidth
+        const y = padding + chartHeight - (maxValue > 0 ? (value / maxValue) * chartHeight : 0)
 
         return (
           <circle
@@ -183,22 +209,39 @@ function LineChart({ data, width, height }: { data: ChartData; width: number; he
       })}
 
       {/* X-axis labels */}
-      {data.labels.map((label, index) => (
-        <text
-          key={index}
-          x={padding + (index / (data.labels.length - 1)) * chartWidth}
-          y={height - 10}
-          textAnchor="middle"
-          className="text-xs fill-gray-600"
-        >
-          {label}
-        </text>
-      ))}
+      {data.labels.map((label, index) => {
+        // Handle single data point case
+        const divisor = Math.max(data.labels.length - 1, 1)
+        const x = padding + (index / divisor) * chartWidth
+
+        return (
+          <text
+            key={index}
+            x={x}
+            y={height - 10}
+            textAnchor="middle"
+            className="text-xs fill-gray-600"
+          >
+            {label}
+          </text>
+        )
+      })}
     </svg>
   )
 }
 
 function PieChart({ data, width, height }: { data: ChartData; width: number; height: number }) {
+  // Handle empty data
+  if (!data.datasets[0] || data.datasets[0].data.length === 0 || data.labels.length === 0) {
+    return (
+      <svg width={width} height={height} className="border rounded">
+        <text x={width / 2} y={height / 2} textAnchor="middle" className="text-gray-500">
+          No data available
+        </text>
+      </svg>
+    )
+  }
+
   const centerX = width / 2
   const centerY = height / 2
   const radius = Math.min(width, height) / 2 - 20
@@ -269,6 +312,17 @@ function PieChart({ data, width, height }: { data: ChartData; width: number; hei
 }
 
 function DoughnutChart({ data, width, height }: { data: ChartData; width: number; height: number }) {
+  // Handle empty data
+  if (!data.datasets[0] || data.datasets[0].data.length === 0 || data.labels.length === 0) {
+    return (
+      <svg width={width} height={height} className="border rounded">
+        <text x={width / 2} y={height / 2} textAnchor="middle" className="text-gray-500">
+          No data available
+        </text>
+      </svg>
+    )
+  }
+
   const centerX = width / 2
   const centerY = height / 2
   const outerRadius = Math.min(width, height) / 2 - 20

@@ -2,15 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { trendAnalysisService } from '@/services/analysis/trendAnalysisService'
 import { analysisLogger } from '@/services/analysis/analysisLogger'
 
-interface RouteParams {
-  params: {
-    topicId: string
-  }
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, context: any) {
   try {
-    const { topicId } = params
+    const { topicId } = context.params
     const { searchParams } = new URL(request.url)
 
     // Parse query parameters
@@ -60,7 +54,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     await analysisLogger.log({
-      feedItemId: params.topicId,
+      feedItemId: context.params.topicId,
       operation: 'topic_trend_api_error',
       status: 'error',
       message: `Topic trend API request failed: ${errorMessage}`,
@@ -74,9 +68,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, context: any) {
   try {
-    const { topicId } = params
+    const { topicId } = context.params
     const body = await request.json()
     const { action, config } = body
 
@@ -121,7 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     await analysisLogger.log({
-      feedItemId: params.topicId,
+      feedItemId: context.params.topicId,
       operation: 'topic_trend_api_post_error',
       status: 'error',
       message: `Topic trend API POST request failed: ${errorMessage}`,

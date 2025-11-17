@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
       topic,
       style: style || 'professional',
       length: length || 'medium',
-      includeSources: includeSources ?? true
+      includeSources: includeSources ?? true,
+      userId: 'user-1' // TODO: Get from authenticated user session
     }
 
     const content = await aiService.generateBlogPost(options)

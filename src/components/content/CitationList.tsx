@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 
 interface Citation {
   id: string
@@ -21,11 +21,7 @@ export function CitationList({ contentId }: CitationListProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadCitations()
-  }, [contentId])
-
-  const loadCitations = async () => {
+  const loadCitations = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(`/api/content/${contentId}/citations`)
@@ -39,7 +35,11 @@ export function CitationList({ contentId }: CitationListProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [contentId])
+
+  useEffect(() => {
+    loadCitations()
+  }, [loadCitations])
 
   const generateCitations = async (style: 'APA' | 'MLA' | 'Chicago' = 'APA') => {
     try {

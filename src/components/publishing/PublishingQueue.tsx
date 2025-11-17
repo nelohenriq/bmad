@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 
 interface PublishingJob {
   id?: string
@@ -26,21 +26,13 @@ export function PublishingQueue({ contentId }: PublishingQueueProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (contentId) {
-      fetchJobs()
-    } else {
-      setLoading(false)
-    }
-  }, [contentId])
-
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
       const response = await fetch(`/api/publishing/jobs?contentId=${contentId}`)
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch publishing jobs')
       }
@@ -52,7 +44,15 @@ export function PublishingQueue({ contentId }: PublishingQueueProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [contentId])
+
+  useEffect(() => {
+    if (contentId) {
+      fetchJobs()
+    } else {
+      setLoading(false)
+    }
+  }, [contentId, fetchJobs])
 
   const getStatusColor = (status: PublishingJob['status']) => {
     switch (status) {

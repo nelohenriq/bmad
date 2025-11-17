@@ -7,10 +7,10 @@ const citationManager = new CitationManager()
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { contentId: string } }
+  context: { params: Promise<{ contentId: string }> }
 ) {
   try {
-    const contentId = params.contentId
+    const { contentId } = await context.params
     const citations = await citationManager.getCitations(contentId)
 
     return NextResponse.json({
@@ -29,10 +29,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { contentId: string } }
+  context: { params: Promise<{ contentId: string }> }
 ) {
   try {
-    const contentId = params.contentId
+    const { contentId } = await context.params
     const { sources, style } = await request.json()
 
     if (!sources || !Array.isArray(sources)) {

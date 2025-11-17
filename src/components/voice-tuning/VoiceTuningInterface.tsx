@@ -140,28 +140,6 @@ export const VoiceTuningInterface: React.FC<VoiceTuningInterfaceProps> = ({
     setSession(newSession)
   }, [profileId, initialParameters])
 
-  const handleParameterChange = useCallback((parameter: keyof VoiceParameters, value: number) => {
-    setParameters(prev => ({ ...prev, [parameter]: value }))
-
-    // Track adjustment
-    if (session) {
-      const adjustment = {
-        parameter,
-        previousValue: parameters[parameter],
-        newValue: value,
-        timestamp: new Date(),
-        confidence: 0.8, // TODO: Calculate based on analysis
-      }
-      setSession(prev => prev ? {
-        ...prev,
-        parameterAdjustments: [...prev.parameterAdjustments, adjustment]
-      } : prev)
-    }
-
-    // Trigger preview update
-    updatePreview({ ...parameters, [parameter]: value })
-  }, [parameters, session])
-
   const updatePreview = useCallback(async (params: VoiceParameters) => {
     setIsLoading(true)
     try {
@@ -189,6 +167,28 @@ export const VoiceTuningInterface: React.FC<VoiceTuningInterfaceProps> = ({
       setIsLoading(false)
     }
   }, [profileId])
+
+  const handleParameterChange = useCallback((parameter: keyof VoiceParameters, value: number) => {
+    setParameters(prev => ({ ...prev, [parameter]: value }))
+
+    // Track adjustment
+    if (session) {
+      const adjustment = {
+        parameter,
+        previousValue: parameters[parameter],
+        newValue: value,
+        timestamp: new Date(),
+        confidence: 0.8, // TODO: Calculate based on analysis
+      }
+      setSession(prev => prev ? {
+        ...prev,
+        parameterAdjustments: [...prev.parameterAdjustments, adjustment]
+      } : prev)
+    }
+
+    // Trigger preview update
+    updatePreview({ ...parameters, [parameter]: value })
+  }, [parameters, session, updatePreview])
 
   const handleSave = useCallback(async () => {
     setIsLoading(true)

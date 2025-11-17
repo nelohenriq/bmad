@@ -4,7 +4,10 @@ import { Toolbar } from './content-editor/Toolbar'
 import { EditorCanvas } from './content-editor/EditorCanvas'
 import { ExportPanel } from './content-editor/ExportPanel'
 import { ChangeTracker } from './content-editor/ChangeTracker'
+import { Skeleton } from './ui/skeleton'
 import { FileText } from 'lucide-react'
+import { apiClient } from '@/lib/api/client'
+import { toast } from '@/lib/hooks/useToast'
 
 interface ContentEditorProps {
   contentId: string
@@ -51,29 +54,18 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
 
   const loadContent = useCallback(async () => {
     setIsLoading(true)
-    try {
-      const response = await fetch(`/api/content/${contentId}/edit`)
-      if (response.ok) {
-        const data = await response.json()
-        setContent(data.content || '')
-        setLastSaved(new Date(data.updatedAt))
-      }
-    } catch (error) {
-      console.error('Failed to load content:', error)
-    } finally {
-      setIsLoading(false)
+    const result = await apiClient.get(`/api/content/${contentId}/edit`)
+    if (result.success && result.data) {
+      setContent((result.data as any).content || '')
+      setLastSaved(new Date((result.data as any).updatedAt))
     }
+    setIsLoading(false)
   }, [contentId])
 
   const loadExportHistory = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/content/${contentId}/exports`)
-      if (response.ok) {
-        const data = await response.json()
-        setExportHistory(data.exports || [])
-      }
-    } catch (error) {
-      console.error('Failed to load export history:', error)
+    const result = await apiClient.get(`/api/content/${contentId}/exports`)
+    if (result.success && result.data) {
+      setExportHistory((result.data as any).exports || [])
     }
   }, [contentId])
 
@@ -85,7 +77,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
       }
       loadExportHistory()
     }
-  }, [contentId, loadContent, loadExportHistory])
+  }, [contentId, initialContent, loadContent, loadExportHistory])
 
   // Time tracking
   useEffect(() => {
@@ -103,27 +95,17 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
   const handleAutoSave = useCallback(async () => {
     if (!contentId || readOnly) return
 
-    try {
-      const response = await fetch(`/api/content/${contentId}/edit`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content,
-          changes,
-          autoSave: true,
-          sessionId,
-          timeSpentMs: timeSpent,
-        }),
-      })
+    const result = await apiClient.put(`/api/content/${contentId}/edit`, {
+      content,
+      changes,
+      autoSave: true,
+      sessionId,
+      timeSpentMs: timeSpent,
+    })
 
-      if (response.ok) {
-        setLastSaved(new Date())
-        setChanges([])
-      }
-    } catch (error) {
-      console.error('Auto-save failed:', error)
+    if (result.success) {
+      setLastSaved(new Date())
+      setChanges([])
     }
   }, [contentId, readOnly, content, changes, sessionId, timeSpent])
 
@@ -143,35 +125,29 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
         clearTimeout(autoSaveTimeoutRef.current)
       }
     }
-  }, [content, handleAutoSave, initialContent, readOnly])
+  }, [content, initialContent, readOnly, handleAutoSave])
 
   const handleSave = async () => {
     if (!contentId || readOnly) return
 
     setIsLoading(true)
-    try {
-      const response = await fetch(`/api/content/${contentId}/edit`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content,
-          changes,
-          sessionId,
-          timeSpentMs: timeSpent,
-        }),
-      })
+    const result = await apiClient.put(`/api/content/${contentId}/edit`, {
+      content,
+      changes,
+      sessionId,
+      timeSpentMs: timeSpent,
+    })
 
-      if (response.ok) {
-        setLastSaved(new Date())
-        setChanges([])
-        onSave?.(content)
-      }
-    } catch (error) {
-      console.error('Save failed:', error)
-    } finally {
-      setIsLoading(false)
+    setIsLoading(false)
+
+    if (result.success) {
+      setLastSaved(new Date())
+      setChanges([])
+      onSave?.(content)
+      toast({
+        title: 'Content Saved',
+        description: 'Your changes have been saved successfully.',
+      })
     }
   }
 
@@ -226,51 +202,46 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
 
   const exportContent = async (format: 'markdown' | 'html' | 'pdf', citationStyle?: 'APA' | 'MLA' | 'Chicago') => {
     setIsExporting(true)
-    try {
-      const response = await fetch(`/api/content/${contentId}/export`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          format,
-          includeCitations,
-          citationStyle
-        }),
+    const result = await apiClient.postBlob(`/api/content/${contentId}/export`, {
+      format,
+      includeCitations,
+      citationStyle
+    })
+
+    setIsExporting(false)
+
+    if (result.success && result.data) {
+      const url = window.URL.createObjectURL(result.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `content-${contentId}.${format === 'markdown' ? 'md' : format}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      // Reload export history
+      await loadExportHistory()
+
+      toast({
+        title: 'Export Complete',
+        description: `Content exported as ${format.toUpperCase()}.`,
       })
-
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        const contentDisposition = response.headers.get('Content-Disposition')
-        const filename = contentDisposition
-          ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-          : `content-${contentId}.${format === 'markdown' ? 'md' : 'html'}`
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-
-        // Reload export history
-        await loadExportHistory()
-      }
-    } catch (error) {
-      console.error('Export failed:', error)
-    } finally {
-      setIsExporting(false)
     }
   }
 
   if (isLoading && !content) {
     return (
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2">Loading content...</span>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-32" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-10 w-24" />
           </div>
         </CardContent>
       </Card>

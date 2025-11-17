@@ -12,10 +12,10 @@ const exportContentSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { contentId: string } }
+  context: any
 ) {
   try {
-    const contentId = params.contentId;
+    const contentId = context.params.contentId;
     const body = await request.json();
 
     const { format, includeCitations, citationStyle } = exportContentSchema.parse(body);

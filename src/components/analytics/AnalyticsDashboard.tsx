@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { ChartComponent, ChartData } from './ChartComponent'
 import {
   MetricCard,
@@ -54,11 +54,7 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
   const [customStartDate, setCustomStartDate] = useState<Date>()
   const [customEndDate, setCustomEndDate] = useState<Date>()
 
-  useEffect(() => {
-    loadDashboardData()
-  }, [userId, timeRange, customStartDate, customEndDate])
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -87,7 +83,11 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId, timeRange, customStartDate, customEndDate])
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [loadDashboardData])
 
   const handleExport = async (format: 'json' | 'csv') => {
     try {
@@ -149,8 +149,8 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
     return (
       <div className={`analytics-dashboard ${className}`}>
         <div className="flex items-center justify-center p-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-lg text-gray-600">Loading analytics...</span>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <span className="ml-3 text-lg text-muted-foreground">Loading analytics...</span>
         </div>
       </div>
     )
@@ -160,16 +160,16 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
     return (
       <div className={`analytics-dashboard ${className}`}>
         <div className="text-center py-12">
-          <div className="text-red-600 mb-4">
+          <div className="text-destructive mb-4">
             <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
-            <h3 className="text-lg font-medium">Failed to load analytics</h3>
-            <p className="text-sm">{error}</p>
+            <h3 className="text-lg font-medium text-card-foreground">Failed to load analytics</h3>
+            <p className="text-sm text-muted-foreground">{error}</p>
           </div>
           <button
             onClick={loadDashboardData}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
             Try Again
           </button>
@@ -182,7 +182,7 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
     return (
       <div className={`analytics-dashboard ${className}`}>
         <div className="text-center py-12">
-          <p className="text-gray-500">No analytics data available</p>
+          <p className="text-muted-foreground">No analytics data available</p>
         </div>
       </div>
     )
@@ -193,14 +193,14 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="text-gray-600 mt-1">Insights into your content creation workflow</p>
+          <h1 className="text-2xl font-bold text-card-foreground">Analytics Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Insights into your content creation workflow</p>
         </div>
         <ExportButton onExport={handleExport} userId={userId} />
       </div>
 
       {/* Time Range Selector */}
-      <div className="bg-white p-4 rounded-lg shadow">
+      <div className="bg-card p-4 rounded-lg shadow border border-border">
         <TimeRangeSelector
           selectedRange={timeRange}
           onRangeChange={setTimeRange}
@@ -236,7 +236,7 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Content Creation Trends */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow border border-border">
           <ChartComponent
             type="line"
             data={prepareChartData(
@@ -249,7 +249,7 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
         </div>
 
         {/* Publishing Trends */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow border border-border">
           <ChartComponent
             type="bar"
             data={prepareChartData(
@@ -262,7 +262,7 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
         </div>
 
         {/* AI Model Usage */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow border border-border">
           <ChartComponent
             type="pie"
             data={preparePieChartData(
@@ -277,7 +277,7 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
         </div>
 
         {/* Platform Performance */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow border border-border">
           <ChartComponent
             type="doughnut"
             data={preparePieChartData(
@@ -295,46 +295,46 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
       {/* Detailed Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Content Types */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Content Types</h3>
+        <div className="bg-card p-6 rounded-lg shadow border border-border">
+          <h3 className="text-lg font-semibold mb-4 text-card-foreground">Content Types</h3>
           <div className="space-y-3">
             {dashboardData.contentCreation.contentTypes.map((type, index) => (
               <div key={index} className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">{type.type}</span>
-                <span className="font-medium">{type.count}</span>
+                <span className="text-sm text-muted-foreground">{type.type}</span>
+                <span className="font-medium text-card-foreground">{type.count}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Top Topics */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Top Topics</h3>
+        <div className="bg-card p-6 rounded-lg shadow border border-border">
+          <h3 className="text-lg font-semibold mb-4 text-card-foreground">Top Topics</h3>
           <div className="space-y-3">
             {dashboardData.contentCreation.topTopics.slice(0, 5).map((topic, index) => (
               <div key={index} className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 truncate">{topic.topic}</span>
-                <span className="font-medium">{topic.count}</span>
+                <span className="text-sm text-muted-foreground truncate">{topic.topic}</span>
+                <span className="font-medium text-card-foreground">{topic.count}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Feed Health */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Feed Health</h3>
+        <div className="bg-card p-6 rounded-lg shadow border border-border">
+          <h3 className="text-lg font-semibold mb-4 text-card-foreground">Feed Health</h3>
           <div className="space-y-3">
             {dashboardData.rssMonitoring.feedHealth.slice(0, 5).map((feed, index) => (
               <div key={index} className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 truncate">{feed.feed}</span>
+                <span className="text-sm text-muted-foreground truncate">{feed.feed}</span>
                 <div className="flex items-center">
-                  <div className="w-16 h-2 bg-gray-200 rounded mr-2">
+                  <div className="w-16 h-2 bg-muted rounded mr-2">
                     <div
-                      className="h-2 bg-green-500 rounded"
+                      className="h-2 bg-primary rounded"
                       style={{ width: `${feed.health}%` }}
                     ></div>
                   </div>
-                  <span className="text-sm font-medium">{feed.health}%</span>
+                  <span className="text-sm font-medium text-card-foreground">{feed.health}%</span>
                 </div>
               </div>
             ))}
@@ -343,14 +343,14 @@ export function AnalyticsDashboard({ userId, className = '' }: AnalyticsDashboar
       </div>
 
       {/* Privacy Notice */}
-      <div className="bg-blue-50 p-4 rounded-lg">
+      <div className="bg-accent p-4 rounded-lg border border-border">
         <div className="flex items-start">
-          <svg className="w-5 h-5 text-blue-400 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <svg className="w-5 h-5 text-accent-foreground mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
           <div>
-            <h4 className="text-sm font-medium text-blue-800">Privacy & Data</h4>
-            <p className="text-sm text-blue-700 mt-1">
+            <h4 className="text-sm font-medium text-accent-foreground">Privacy & Data</h4>
+            <p className="text-sm text-accent-foreground/80 mt-1">
               All analytics data is stored locally and never shared with external services.
               You can export or delete your data at any time.
             </p>

@@ -5,12 +5,9 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 const factCheckingService = new FactCheckingService()
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { contentId: string } }
-) {
+export async function POST(request: NextRequest, context: any) {
   try {
-    const contentId = params.contentId
+    const contentId = context.params.contentId
 
     // Get content and related RSS sources
     const content = await (prisma as any).content.findUnique({
@@ -65,12 +62,9 @@ export async function POST(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { contentId: string } }
-) {
+export async function GET(request: NextRequest, context: any) {
   try {
-    const contentId = params.contentId
+    const contentId = context.params.contentId
 
     const results = await factCheckingService.getFactCheckResults(contentId)
 

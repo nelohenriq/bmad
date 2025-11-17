@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { userService } from '@/lib/user/userService'
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic'
 import { z } from 'zod'
 
 // Note: In a real implementation, user authentication would be handled

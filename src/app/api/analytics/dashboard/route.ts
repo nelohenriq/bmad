@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { analyticsService } from '@/lib/analytics/analyticsService'
 import { z } from 'zod'
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic'
+
 const dashboardQuerySchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),

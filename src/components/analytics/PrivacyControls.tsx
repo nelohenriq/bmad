@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { analyticsService } from '@/lib/analytics/analyticsService'
 
 interface AnalyticsPreferences {
@@ -32,11 +32,7 @@ export function PrivacyControls({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
-  useEffect(() => {
-    loadPreferences()
-  }, [userId])
-
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     try {
       setLoading(true)
       const prefs = await analyticsService.getAnalyticsPreferences(userId)
@@ -48,7 +44,11 @@ export function PrivacyControls({
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId, onUpdate, onError])
+
+  useEffect(() => {
+    loadPreferences()
+  }, [loadPreferences])
 
   const savePreferences = async (newPreferences: Partial<AnalyticsPreferences>) => {
     try {

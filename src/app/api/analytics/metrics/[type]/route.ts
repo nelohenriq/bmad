@@ -8,15 +8,9 @@ const metricsQuerySchema = z.object({
   timeRange: z.enum(['day', 'week', 'month', 'year']).optional()
 })
 
-interface RouteParams {
-  params: {
-    type: string
-  }
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, context: { params: Promise<{ type: string }> }) {
   try {
-    const { type } = params
+    const { type } = await context.params
 
     // TODO: Get user ID from authentication context
     const { searchParams } = new URL(request.url)

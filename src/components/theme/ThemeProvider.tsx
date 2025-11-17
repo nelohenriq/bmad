@@ -30,13 +30,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [theme, mounted])
 
-  if (!mounted) {
-    return <>{children}</>
-  }
-
+  // Always provide context wrapper to prevent timing issues
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
+      {!mounted ? (
+        <div style={{ visibility: 'hidden' }}>{children}</div>
+      ) : (
+        children
+      )}
     </ThemeContext.Provider>
   )
 }

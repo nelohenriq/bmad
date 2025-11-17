@@ -3,13 +3,10 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { profileId: string } }
-) {
+export async function POST(request: NextRequest, context: any) {
   try {
     const { parameters, session } = await request.json()
-    const profileId = params.profileId
+    const profileId = context.params.profileId
 
     // Update the voice profile with new parameters
     const updatedProfile = await prisma.voiceProfile.update({

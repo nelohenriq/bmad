@@ -34,7 +34,6 @@ interface UpdateFeedData {
   contentFilters?: Record<string, any>
   lastConfigUpdate?: Date
 }
-import { feedProcessor } from '@/services/rss/feedProcessor'
 import {
   Card,
   CardContent,
@@ -183,9 +182,19 @@ export default function FeedsPage() {
 
     try {
       setError(null)
-      // Process all active feeds
+      // Process all active feeds via API
       await Promise.all(
-        activeFeeds.map((feed) => feedProcessor.processFeed(feed))
+        activeFeeds.map((feed) =>
+          fetch(`/api/feeds/${feed.id}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'refresh' }),
+          }).then((res) => {
+            if (!res.ok) throw new Error('Failed to refresh feed')
+          })
+        )
       )
       loadFeeds() // Reload feeds to show updated status
     } catch (err) {
@@ -198,12 +207,17 @@ export default function FeedsPage() {
   const handleForceRefresh = async (feedId: string) => {
     try {
       setError(null)
-      // Get feed data and trigger manual processing
-      const feed = feeds.find((f) => f.id === feedId)
-      if (feed) {
-        await feedProcessor.processFeed(feed)
-        loadFeeds() // Reload feeds to show updated status
+      const response = await fetch(`/api/feeds/${feedId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'refresh' }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to refresh feed')
       }
+      loadFeeds() // Reload feeds to show updated status
     } catch (err) {
       setError('Failed to refresh feed')
       console.error('Error refreshing feed:', err)
@@ -291,209 +305,232 @@ export default function FeedsPage() {
 
   // Render feed item (extracted to avoid duplication)
   const renderFeedItem = (feed: FeedData) => (
-    <div key={feed.id} className="p-4 border rounded-lg hover:bg-gray-50">
-      {editingFeed === feed.id ? (
-        // Edit Mode
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium text-gray-900">Edit Feed</h3>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleSaveEdit}>
-                <Check className="w-4 h-4 mr-2" />
-                Save
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleCancelEdit}>
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
+    <Card key={feed.id} className="mb-4">
+      <CardContent className="p-6">
+        {editingFeed === feed.id ? (
+          // Edit Mode
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 transition-colors">Edit Feed</h3>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleSaveEdit}>
+                  <Check className="w-4 h-4 mr-2" />
+                  Save
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+                  <X className="w-4 h-4 mr-2" />
+                  Cancel
+                </Button>
+              </div>
             </div>
+
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-gray-100 transition-colors">Title</label>
+                  <input
+                    type="text"
+                    value={editForm.title}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, title: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 border dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors"
+                    placeholder="Feed title"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-gray-100 transition-colors">Category</label>
+                  <select
+                    value={editForm.category}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, category: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 border dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors"
+                  >
+                    <option value="">No category</option>
+                    {[
+                      'Technology',
+                      'News',
+                      'Blog',
+                      'Personal',
+                      'Business',
+                      'Entertainment',
+                      'Science',
+                      'Sports',
+                      'Health',
+                      'Education',
+                    ].map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900 dark:text-gray-100 transition-colors">Description</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors"
+                  rows={3}
+                  placeholder="Feed description"
+                />
+              </div>
+            </div>
+
+            <div className="text-sm text-gray-500 dark:text-gray-400 transition-colors">URL: {feed.url}</div>
           </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Title</label>
-              <input
-                type="text"
-                value={editForm.title}
-                onChange={(e) =>
-                  setEditForm((prev) => ({ ...prev, title: e.target.value }))
-                }
-                className="w-full px-3 py-2 border rounded-md text-sm"
-                placeholder="Feed title"
-              />
+        ) : (
+          // Display Mode
+          <div className="space-y-4">
+            {/* Header with title and status */}
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 transition-colors">
+                    {feed.title || 'Untitled Feed'}
+                  </h3>
+                  <FeedStatusIndicator
+                    status={(feed as any).lastFetchStatus}
+                    healthScore={(feed as any).healthScore || 1.0}
+                    isActive={feed.isActive}
+                    lastFetched={feed.lastFetched}
+                    retryCount={(feed as any).fetchRetryCount || 0}
+                  />
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 break-all transition-colors">{feed.url}</p>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category</label>
-              <select
-                value={editForm.category}
-                onChange={(e) =>
-                  setEditForm((prev) => ({ ...prev, category: e.target.value }))
-                }
-                className="w-full px-3 py-2 border rounded-md text-sm"
-              >
-                <option value="">No category</option>
-                {[
-                  'Technology',
-                  'News',
-                  'Blog',
-                  'Personal',
-                  'Business',
-                  'Entertainment',
-                  'Science',
-                  'Sports',
-                  'Health',
-                  'Education',
-                ].map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Monitoring Dashboard */}
-            <div className="lg:col-span-1 space-y-6">
-              <FeedNotifications />
-              <FeedErrorHistory feedId="sample-feed-id" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
-            <textarea
-              value={editForm.description}
-              onChange={(e) =>
-                setEditForm((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              className="w-full px-3 py-2 border rounded-md text-sm"
-              rows={3}
-              placeholder="Feed description"
-            />
-          </div>
-
-          <div className="text-sm text-gray-500">URL: {feed.url}</div>
-        </div>
-      ) : (
-        // Display Mode
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="font-medium text-gray-900 truncate">
-                {feed.title || 'Untitled Feed'}
-              </h3>
-              <FeedStatusIndicator
-                status={(feed as any).lastFetchStatus}
-                healthScore={(feed as any).healthScore || 1.0}
-                isActive={feed.isActive}
-                lastFetched={feed.lastFetched}
-                retryCount={(feed as any).fetchRetryCount || 0}
-              />
-            </div>
-
-            <p className="text-sm text-gray-600 mb-2 truncate">{feed.url}</p>
-
+            {/* Description */}
             {feed.description && (
-              <p className="text-sm text-gray-500 mb-2 line-clamp-2">
+              <p className="text-sm text-gray-700 dark:text-gray-300 transition-colors">
                 {feed.description}
               </p>
             )}
 
-            <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-              <span>Added {new Date(feed.createdAt).toLocaleDateString()}</span>
-              {feed.lastFetched && (
-                <span>
-                  Last fetched {new Date(feed.lastFetched).toLocaleDateString()}
-                </span>
-              )}
+            {/* Metadata */}
+            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 transition-colors">
+              <div className="flex items-center gap-4">
+                <span>Added {new Date(feed.createdAt).toLocaleDateString()}</span>
+                {feed.lastFetched && (
+                  <span>
+                    Last fetched {new Date(feed.lastFetched).toLocaleDateString()}
+                  </span>
+                )}
+                {feed.category && (
+                  <Badge variant="secondary" className="text-xs">
+                    {feed.category}
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 transition-colors">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleStartEdit(feed)}
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                title="Edit feed"
+              >
+                <Edit2 className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleOpenSettings(feed)}
+                className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
+                title="Configure feed settings"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleForceRefresh(feed.id)}
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                title="Force refresh feed"
+                disabled={!feed.isActive}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleToggleFeedStatus(feed.id, feed.isActive)}
+                className={
+                  feed.isActive
+                    ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 transition-colors'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors'
+                }
+                title={feed.isActive ? 'Deactivate feed' : 'Activate feed'}
+              >
+                {feed.isActive ? (
+                  <>
+                    <ToggleRight className="w-4 h-4 mr-2" />
+                    Active
+                  </>
+                ) : (
+                  <>
+                    <ToggleLeft className="w-4 h-4 mr-2" />
+                    Inactive
+                  </>
+                )}
+              </Button>
+
+              <Button variant="ghost" size="sm" asChild>
+                <a
+                  href={feed.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
+                  title="Open feed URL"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Visit
+                </a>
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDeleteFeed(feed.id)}
+                className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                title="Delete feed"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 ml-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleStartEdit(feed)}
-              className="text-blue-600 hover:text-blue-700"
-              title="Edit feed"
-            >
-              <Edit2 className="w-4 h-4" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleOpenSettings(feed)}
-              className="text-purple-600 hover:text-purple-700"
-              title="Configure feed settings"
-            >
-              <Settings className="w-4 h-4" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleForceRefresh(feed.id)}
-              className="text-orange-600 hover:text-orange-700"
-              title="Force refresh feed"
-              disabled={!feed.isActive}
-            >
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleToggleFeedStatus(feed.id, feed.isActive)}
-              className={
-                feed.isActive
-                  ? 'text-green-600 hover:text-green-700'
-                  : 'text-gray-400 hover:text-gray-600'
-              }
-              title={feed.isActive ? 'Deactivate feed' : 'Activate feed'}
-            >
-              {feed.isActive ? (
-                <ToggleRight className="w-4 h-4" />
-              ) : (
-                <ToggleLeft className="w-4 h-4" />
-              )}
-            </Button>
-
-            <Button variant="ghost" size="sm" asChild>
-              <a
-                href={feed.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDeleteFeed(feed.id)}
-              className="text-red-400 hover:text-red-600"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </CardContent>
+    </Card>
   )
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 bg-gray-50 dark:bg-gray-900 transition-colors">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 transition-colors">
           RSS Feed Management
         </h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-300 transition-colors">
           Manage your RSS feed sources for content generation.
         </p>
       </div>
@@ -505,7 +542,7 @@ export default function FeedsPage() {
         </div>
 
         {/* Feed List */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -565,21 +602,21 @@ export default function FeedsPage() {
             <CardContent>
               {loading ? (
                 <div className="text-center py-8">
-                  <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-500">Loading feeds...</p>
+                  <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400 dark:text-gray-500 transition-colors" />
+                  <p className="text-gray-500 dark:text-gray-400 transition-colors">Loading feeds...</p>
                 </div>
               ) : error ? (
                 <div className="text-center py-8">
-                  <p className="text-red-600 mb-4">{error}</p>
+                  <p className="text-red-600 dark:text-red-400 mb-4 transition-colors">{error}</p>
                   <Button onClick={loadFeeds} variant="outline">
                     Try Again
                   </Button>
                 </div>
               ) : feeds.length === 0 ? (
                 <div className="text-center py-8">
-                  <Rss className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-gray-500 mb-4">No feeds added yet</p>
-                  <p className="text-sm text-gray-400">
+                  <Rss className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600 transition-colors" />
+                  <p className="text-gray-500 dark:text-gray-400 mb-4 transition-colors">No feeds added yet</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 transition-colors">
                     Add your first RSS feed using the form on the left.
                   </p>
                 </div>
@@ -595,17 +632,16 @@ export default function FeedsPage() {
                         return a.localeCompare(b)
                       })
                       .map(([category, categoryFeeds]) => (
-                        <div key={category} className="space-y-3">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg text-gray-900">
+                        <div key={category} className="space-y-4">
+                          <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-2 transition-colors">
+                            <h3 className="font-semibold text-xl text-gray-900 dark:text-gray-100 transition-colors">
                               {category}
                             </h3>
-                            <Badge variant="outline" className="text-xs">
-                              {categoryFeeds.length} feed
-                              {categoryFeeds.length !== 1 ? 's' : ''}
+                            <Badge variant="outline" className="text-sm">
+                              {categoryFeeds.length} feed{categoryFeeds.length !== 1 ? 's' : ''}
                             </Badge>
                           </div>
-                          <div className="space-y-3 pl-4 border-l-2 border-gray-200">
+                          <div className="space-y-4">
                             {categoryFeeds.map((feed) => renderFeedItem(feed))}
                           </div>
                         </div>

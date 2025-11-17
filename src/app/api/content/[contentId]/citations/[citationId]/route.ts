@@ -5,10 +5,10 @@ const citationManager = new CitationManager()
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { contentId: string; citationId: string } }
+  context: { params: Promise<{ contentId: string; citationId: string }> }
 ) {
   try {
-    const { citationId } = params
+    const { citationId } = await context.params
     const updates = await request.json()
 
     await citationManager.updateCitation(citationId, updates)
@@ -29,10 +29,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { contentId: string; citationId: string } }
+  context: { params: Promise<{ contentId: string; citationId: string }> }
 ) {
   try {
-    const { citationId } = params
+    const { citationId } = await context.params
 
     await citationManager.deleteCitation(citationId)
 

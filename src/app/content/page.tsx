@@ -87,11 +87,11 @@ export default function ContentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-lg text-gray-600">Loading content...</span>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
+            <span className="ml-3 text-lg text-gray-600 dark:text-gray-300 transition-colors">Loading content...</span>
           </div>
         </div>
       </div>
@@ -99,13 +99,13 @@ export default function ContentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Content Management</h1>
-            <p className="mt-2 text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 transition-colors">Content Management</h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-300 transition-colors">
               Create, edit, and organize your AI-generated content
             </p>
           </div>
@@ -118,11 +118,11 @@ export default function ContentPage() {
         </div>
 
         {/* Search */}
-        <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6 border border-gray-100 dark:border-gray-700 transition-colors">
           <form onSubmit={handleSearch} className="flex gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5 transition-colors" />
                 <Input
                   type="text"
                   placeholder="Search content..."
@@ -140,27 +140,27 @@ export default function ContentPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 transition-colors">
             <div className="flex">
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-300 transition-colors">
                   Error loading content
                 </h3>
-                <p className="mt-1 text-sm text-red-700">{error}</p>
+                <p className="mt-1 text-sm text-red-700 dark:text-red-400 transition-colors">{error}</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Content List */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden border border-gray-100 dark:border-gray-700 transition-colors">
           {content.length === 0 ? (
             <div className="text-center py-12">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <FileText className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4 transition-colors" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2 transition-colors">
                 No content found
               </h3>
-              <p className="text-gray-500 mb-6">
+              <p className="text-gray-500 dark:text-gray-400 mb-6 transition-colors">
                 {searchQuery ? 'Try adjusting your search terms.' : 'Get started by generating your first piece of content.'}
               </p>
               <Link href="/content/generate">
@@ -171,18 +171,18 @@ export default function ContentPage() {
               </Link>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {content.map((item) => (
-                <div key={item.id} className="p-6 hover:bg-gray-50">
+                <div key={item.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-medium text-gray-900 truncate">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 truncate transition-colors">
                         {item.title}
                       </h3>
-                      <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 line-clamp-2 transition-colors">
                         {item.content.replace(/<[^>]*>/g, '').substring(0, 200)}...
                       </p>
-                      <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                      <div className="mt-2 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 transition-colors">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           Created {formatDate(item.createdAt)}
@@ -209,7 +209,7 @@ export default function ContentPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(item.id)}
-                        className="text-red-600 hover:text-red-700"
+                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                       >
                         <Trash2 className="w-4 h-4 mr-1" />
                         Delete
@@ -225,7 +225,7 @@ export default function ContentPage() {
         {/* Pagination placeholder */}
         {content.length > 0 && (
           <div className="mt-6 flex justify-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400 transition-colors">
               Showing {content.length} content item{content.length !== 1 ? 's' : ''}
             </p>
           </div>

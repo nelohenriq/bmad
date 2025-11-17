@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { categoryInferenceService } from '../rss/categoryInferenceService'
 
 export interface CreateContentData {
   userId: string
@@ -228,13 +229,27 @@ export class ContentService {
       throw new Error('Feed with this URL already exists')
     }
 
+    // Infer category if not provided
+    let category = data.category
+    if (!category) {
+      try {
+        console.log('Inferring category for RSS feed:', data.url)
+        const inferenceResult = await categoryInferenceService.inferCategory(data.url)
+        category = inferenceResult.category
+        console.log(`Inferred category: ${category} (confidence: ${inferenceResult.confidence})`)
+      } catch (error) {
+        console.warn('Category inference failed, using default:', error)
+        category = 'Other'
+      }
+    }
+
     return prisma.feed.create({
       data: {
         userId: data.userId,
         url: data.url,
         title: data.title,
         description: data.description,
-        category: data.category,
+        category,
       },
     })
   }

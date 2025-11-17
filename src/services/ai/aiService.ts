@@ -37,6 +37,11 @@ export class AIService {
     }
   }
 
+  async generateContent(prompt: string): Promise<string> {
+    this.ensureInitialized()
+    return this.ollamaClient.generateContent(prompt)
+  }
+
   async generateBlogPost(options: ContentGenerationOptions): Promise<string> {
     this.ensureInitialized()
 
@@ -61,16 +66,33 @@ export class AIService {
 
     // Build enhanced prompt with RSS context
     let contextSection = ''
+    let sourcesSection = ''
+
     if (rssContext && (rssContext.relatedTopics.length > 0 || rssContext.recentTrends.length > 0 || rssContext.keyInsights.length > 0)) {
       contextSection = `
 
 Recent Context from RSS Feeds:
 ${rssContext.relatedTopics.length > 0 ? `Related Topics: ${rssContext.relatedTopics.slice(0, 3).map(t => t.name).join(', ')}` : ''}
 ${rssContext.recentTrends.length > 0 ? `Current Trends: ${rssContext.recentTrends.slice(0, 3).map(t => `${t.topic} (${t.mentions} mentions)`).join(', ')}` : ''}
-${rssContext.keyInsights.length > 0 ? `Key Insights: ${rssContext.keyInsights.slice(0, 3).join('; ')}` : ''}
+${rssContext.keyInsights.length > 0 ? `Key Insights: ${rssContext.keyInsights.slice(0, 3).join('; ')}` : ''}`
 
-${rssContext.relevantArticles.length > 0 ? `Recent Articles:
-${rssContext.relevantArticles.slice(0, 2).map(a => `- "${a.title}" from ${a.source} (${new Date(a.publishedAt).toLocaleDateString()})`).join('\n')}` : ''}`
+      // Include specific sources if requested
+      if (includeSources && rssContext.relevantArticles.length > 0) {
+        sourcesSection = `
+
+Reference Sources (cite these in your article):
+${rssContext.relevantArticles.slice(0, 3).map((a, i) =>
+  `${i + 1}. "${a.title}" - ${a.source} (${new Date(a.publishedAt).toLocaleDateString()})
+     Summary: ${a.summary}`
+).join('\n\n')}
+
+When referencing sources, use citations like [1], [2], etc.`
+      } else if (rssContext.relevantArticles.length > 0) {
+        sourcesSection = `
+
+Recent Articles for Context:
+${rssContext.relevantArticles.slice(0, 2).map(a => `- "${a.title}" from ${a.source} (${new Date(a.publishedAt).toLocaleDateString()})`).join('\n')}`
+      }
     }
 
     const prompt = `Write a comprehensive blog post about "${topic}" in a ${style} style.
@@ -82,12 +104,27 @@ Requirements:
 - Well-structured content with clear sections and subheadings
 - Practical examples and insights
 - Professional conclusion
-${includeSources ? '- Include relevant sources and references where appropriate' : ''}
+${includeSources ? '- Include citations to the provided reference sources using [1], [2], etc. format' : ''}
 ${contextSection ? `- Incorporate current trends and insights from recent news and articles where relevant` : ''}
 
-Make it informative, well-researched, and engaging for readers interested in ${topic}.${contextSection}`
+Make it informative, well-researched, and engaging for readers interested in ${topic}.${contextSection}${sourcesSection}`
 
-    return this.ollamaClient.generateBlogPost(topic, style)
+    const generatedContent = await this.ollamaClient.generateContent(prompt)
+
+    // Add references section if sources were requested and we have them
+    if (includeSources && rssContext?.relevantArticles && rssContext.relevantArticles.length > 0) {
+      const referencesSection = `
+
+## References
+
+${rssContext.relevantArticles.slice(0, 3).map((article, index) =>
+  `[${index + 1}] ${article.title} - ${article.source}, ${new Date(article.publishedAt).toLocaleDateString()}`
+).join('\n')}`
+
+      return generatedContent + referencesSection
+    }
+
+    return generatedContent
   }
 
   async summarizeContent(content: string): Promise<ContentSummary> {

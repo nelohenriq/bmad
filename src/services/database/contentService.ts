@@ -1,39 +1,23 @@
 import { prisma } from './prisma'
+import { string, z } from 'zod'
+import { 
+  createContentSchema, 
+  updateFeedSchema, 
+  CreateContentInput, 
+  UpdateFeedInput, 
+  CreateFeedInput 
+} from '@/lib/validations/schema'
 
-export interface CreateContentData {
-  userId: string
-  title: string
-  content: string
-  style: string
-  length: string
-  model: string
-  prompt?: string
-}
+// Re-export types
+export type CreateContentData = CreateContentInput & { userId: string }
+export type CreateFeedData = CreateFeedInput & { userId: string }
+export type UpdateFeedData = UpdateFeedInput & { lastConfigUpdate?: Date }
 
 export interface CreateContentSourceData {
   contentId: string
   url: string
   title?: string
   relevance?: number
-}
-
-export interface CreateFeedData {
-  userId: string
-  url: string
-  title?: string
-  description?: string
-  category?: string
-}
-
-export interface UpdateFeedData {
-  title?: string
-  description?: string
-  category?: string
-  isActive?: boolean
-  updateFrequency?: 'manual' | 'hourly' | 'daily' | 'weekly'
-  keywordFilters?: string[]
-  contentFilters?: Record<string, any>
-  lastConfigUpdate?: Date
 }
 
 export interface FeedData {
@@ -46,7 +30,7 @@ export interface FeedData {
   isActive: boolean
   updateFrequency?: 'manual' | 'hourly' | 'daily' | 'weekly' | null
   keywordFilters?: string[] | null
-  contentFilters?: Record<string, any> | null
+  contentFilters?: Record<string, boolean> | null
   lastConfigUpdate?: Date | null
   lastFetched: Date | null
   createdAt: Date
@@ -54,20 +38,6 @@ export interface FeedData {
 }
 
 export class ContentService {
-  // Validation utilities
-  private validateKeywordFilters(filters: string[]): boolean {
-    return Array.isArray(filters) &&
-           filters.length <= 50 && // Reasonable limit
-           filters.every(filter => typeof filter === 'string' && filter.trim().length > 0 && filter.length <= 100)
-  }
-
-  private validateContentFilters(filters: Record<string, any>): boolean {
-    if (typeof filters !== 'object' || filters === null) return false
-
-    // Check that all values are booleans
-    return Object.values(filters).every(value => typeof value === 'boolean')
-  }
-
   // Filter processing utilities
   applyKeywordFilters(content: string, keywordFilters: string[]): boolean {
     if (!keywordFilters || keywordFilters.length === 0) return true
@@ -80,22 +50,22 @@ export class ContentService {
 
   applyContentTypeFilters(contentData: any, contentFilters: Record<string, boolean>): boolean {
     if (!contentFilters || Object.keys(contentFilters).length === 0) return true
-
-    // This is a placeholder for content type filtering logic
-    // In a real implementation, this would check for images, videos, etc.
-    // For now, just return true if no filters are set to false
     return Object.values(contentFilters).some(enabled => enabled)
   }
+
   async createContent(data: CreateContentData) {
+    // Validate input
+    const validData = createContentSchema.parse(data)
+    
     return prisma.content.create({
       data: {
         userId: data.userId,
-        title: data.title,
-        content: data.content,
-        style: data.style,
-        length: data.length,
-        model: data.model,
-        prompt: data.prompt,
+        title: validData.title,
+        content: validData.content,
+        style: validData.style,
+        length: validData.length,
+        model: validData.model,
+        prompt: validData.prompt,
       },
     })
   }
@@ -103,89 +73,12 @@ export class ContentService {
   async getContentById(id: string) {
     return prisma.content.findUnique({
       where: { id },
-      include: {
-        sources: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })
-  }
-
-  async getUserContent(userId: string, limit = 50, offset = 0) {
-    return prisma.content.findMany({
-      where: { userId },
-      include: {
-        sources: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: limit,
-      skip: offset,
-    })
-  }
-
-  async updateContent(id: string, data: Partial<CreateContentData>) {
-    return prisma.content.update({
-      where: { id },
-      data,
-    })
-  }
-
-  async deleteContent(id: string) {
-    // Delete sources first due to foreign key constraint
-    await prisma.contentSource.deleteMany({
-      where: { contentId: id },
-    })
-
-    return prisma.content.delete({
-      where: { id },
-    })
-  }
-
-  async publishContent(id: string) {
-    return prisma.content.update({
-      where: { id },
-      data: {
-        isPublished: true,
-        publishedAt: new Date(),
-      },
     })
   }
 
   async addContentSource(data: CreateContentSourceData) {
     return prisma.contentSource.create({
       data,
-    })
-  }
-
-  async getContentSources(contentId: string) {
-    return prisma.contentSource.findMany({
-      where: { contentId },
-      orderBy: {
-        relevance: 'desc',
-      },
-    })
-  }
-
-  async searchContent(userId: string, query: string, limit = 20) {
-    return prisma.content.findMany({
-      where: {
-        userId,
-        OR: [
-          { title: { contains: query } },
-          { content: { contains: query } },
-        ],
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: limit,
     })
   }
 
@@ -209,6 +102,33 @@ export class ContentService {
       unpublished: total - published,
       thisMonth,
     }
+  }
+
+  async searchContent(userId: string, query: string, limit = 20) {
+    return prisma.content.findMany({
+      where: {
+        userId,
+        OR: [
+          { title: { contains: query } },
+          { content: { contains: query } },
+        ],
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    })
+  }
+
+  async getUserContent(userId: string, limit = 20, offset = 0) {
+    return prisma.content.findMany({
+      where: { userId },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+      skip: offset,
+    })
   }
 
   // RSS Feed Management Methods
@@ -246,14 +166,34 @@ export class ContentService {
     })
 
     // Transform the data to match FeedData interface
-    // Note: New fields will be available after Prisma client regeneration
-    return feeds.map(feed => ({
-      ...feed,
-      updateFrequency: (feed as any).updateFrequency || 'daily',
-      keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
-      contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
-      lastConfigUpdate: (feed as any).lastConfigUpdate || null,
-    })) as FeedData[]
+    return feeds.map(feed => {
+      let keywordFilters: string[] | null = null
+      let contentFilters: Record<string, boolean> | null = null
+
+      try {
+        if (feed.keywordFilters) {
+          keywordFilters = JSON.parse(feed.keywordFilters)
+        }
+      } catch (e) {
+        console.error(`Failed to parse keywordFilters for feed ${feed.id}`, e)
+      }
+
+      try {
+        if (feed.contentFilters) {
+          contentFilters = JSON.parse(feed.contentFilters)
+        }
+      } catch (e) {
+        console.error(`Failed to parse contentFilters for feed ${feed.id}`, e)
+      }
+
+      return {
+        ...feed,
+        updateFrequency: (feed.updateFrequency as any) || 'daily',
+        keywordFilters,
+        contentFilters,
+        lastConfigUpdate: feed.lastConfigUpdate || null,
+      }
+    }) as FeedData[]
   }
 
   async getFeedById(id: string) {
@@ -269,24 +209,29 @@ export class ContentService {
   }
 
   async updateFeed(id: string, data: UpdateFeedData) {
-    // Validate filter data
-    if (data.keywordFilters && !this.validateKeywordFilters(data.keywordFilters)) {
-      throw new Error('Invalid keyword filters: must be an array of non-empty strings (max 50 filters, 100 chars each)')
+    // Validate using Zod schema (partial validation for updates)
+    const validationResult = updateFeedSchema.safeParse(data)
+    
+    if (!validationResult.success) {
+      throw new Error(`Validation failed: ${validationResult.error.message}`)
     }
 
-    if (data.contentFilters && !this.validateContentFilters(data.contentFilters)) {
-      throw new Error('Invalid content filters: must be an object with boolean values')
-    }
+    const validData = validationResult.data
 
     // Prepare data for Prisma, handling JSON serialization
-    const prismaData: any = { ...data }
+    const prismaData: any = { ...validData }
 
-    if (data.keywordFilters !== undefined) {
-      prismaData.keywordFilters = data.keywordFilters ? JSON.stringify(data.keywordFilters) : null
+    if (validData.keywordFilters !== undefined) {
+      prismaData.keywordFilters = validData.keywordFilters ? JSON.stringify(validData.keywordFilters) : null
     }
 
-    if (data.contentFilters !== undefined) {
-      prismaData.contentFilters = data.contentFilters ? JSON.stringify(data.contentFilters) : null
+    if (validData.contentFilters !== undefined) {
+      prismaData.contentFilters = validData.contentFilters ? JSON.stringify(validData.contentFilters) : null
+    }
+    
+    // Add timestamp if not present
+    if (!prismaData.lastConfigUpdate) {
+      prismaData.lastConfigUpdate = new Date()
     }
 
     return prisma.feed.update({

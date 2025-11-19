@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { contentService } from '@/services/database/contentService'
-
-// For now, using a mock user ID - in real app this would come from auth
-const MOCK_USER_ID = 'user-1'
+import { requireAuth } from '@/lib/auth'
+import { createContentSchema } from '@/lib/validations/schema'
+import { z } from 'zod'
 
 export async function GET(request: NextRequest) {
   try {
+    // Authentication
+    const user = await requireAuth()
+
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
@@ -13,9 +16,9 @@ export async function GET(request: NextRequest) {
 
     let content
     if (query) {
-      content = await contentService.searchContent(MOCK_USER_ID, query, limit)
+      content = await contentService.searchContent(user.id, query, limit)
     } else {
-      content = await contentService.getUserContent(MOCK_USER_ID, limit, offset)
+      content = await contentService.getUserContent(user.id, limit, offset)
     }
 
     return NextResponse.json({
@@ -29,6 +32,11 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Content fetch error:', error)
+    
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch content' },
       { status: 500 }
@@ -38,30 +46,32 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { title, content, style, length, model, prompt, sources } = body
+    // Authentication
+    const user = await requireAuth()
 
-    if (!title || !content) {
+    const body = await request.json()
+    
+    // Validation
+    const validationResult = createContentSchema.safeParse(body)
+    
+    if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Title and content are required' },
+        { error: 'Validation failed', details: validationResult.error.format() },
         { status: 400 }
       )
     }
 
+    const data = validationResult.data
+
     // Create content
     const createdContent = await contentService.createContent({
-      userId: MOCK_USER_ID,
-      title,
-      content,
-      style: style || 'professional',
-      length: length || 'medium',
-      model: model || 'llama2:7b',
-      prompt,
+      userId: user.id,
+      ...data
     })
 
-    // Add sources if provided
-    if (sources && Array.isArray(sources)) {
-      for (const source of sources) {
+    // Add sources if provided (already validated by Zod)
+    if (data.sources && data.sources.length > 0) {
+      for (const source of data.sources) {
         await contentService.addContentSource({
           contentId: createdContent.id,
           url: source.url,
@@ -80,6 +90,11 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Content creation error:', error)
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     return NextResponse.json(
       { error: 'Failed to create content' },
       { status: 500 }

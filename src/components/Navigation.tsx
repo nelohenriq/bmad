@@ -36,7 +36,7 @@ export function Navigation() {
                     key={item.name}
                     href={item.href}
                     className={cn(
-                      'inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium',
+                      'inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors',
                       pathname === item.href
                         ? 'border-blue-500 text-gray-900'
                         : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
@@ -47,6 +47,17 @@ export function Navigation() {
                   </Link>
                 )
               })}
+            </div>
+          </div>
+          <div className="hidden sm:ml-6 sm:flex sm:items-center">
+            <div className="flex items-center space-x-3">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">Demo User</p>
+                <p className="text-xs text-gray-500">demo@neuralfeed.studio</p>
+              </div>
+              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                DU
+              </div>
             </div>
           </div>
         </div>

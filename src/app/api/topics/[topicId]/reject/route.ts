@@ -1,30 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
-interface RouteParams {
-  params: {
-    topicId: string
-  }
-}
-
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, context: any) {
   try {
-    const { topicId } = params
-    const body = await request.json()
-    const { reason, rejectedBy = 'system' } = body
+    const { topicId } = context.params;
+    const body = await request.json();
+    const { reason, rejectedBy = 'system' } = body;
 
     // Check if topic exists
     const topic = await prisma.topic.findUnique({
       where: { id: topicId }
-    })
+    });
 
     if (!topic) {
       return NextResponse.json(
         { error: 'Topic not found' },
         { status: 404 }
-      )
+      );
     }
 
     // Create or update approval record
@@ -45,19 +39,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         lastReviewedAt: new Date(),
         reviewCount: 1
       }
-    })
+    });
 
     return NextResponse.json({
       success: true,
       approval,
       message: `Topic ${topic.name} rejected successfully`
-    })
+    });
 
   } catch (error) {
-    console.error('Topic rejection API error:', error)
+    console.error('Topic rejection API error:', error);
     return NextResponse.json(
       { error: 'Failed to reject topic' },
       { status: 500 }
-    )
+    );
   }
 }

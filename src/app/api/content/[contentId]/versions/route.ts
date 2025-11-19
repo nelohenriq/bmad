@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/services/database/prisma';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { contentId: string } }
-) {
+export async function GET(request: NextRequest, context: any) {
   try {
-    const contentId = params.contentId;
+    const contentId = context.params.contentId;
 
     const content = await (prisma as any).content.findUnique({
       where: { id: contentId },

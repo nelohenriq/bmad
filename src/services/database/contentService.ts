@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+<<<<<<< HEAD
 import { string, z } from 'zod'
 import { 
   createContentSchema, 
@@ -7,6 +8,9 @@ import {
   UpdateFeedInput, 
   CreateFeedInput 
 } from '@/lib/validations/schema'
+=======
+import { categoryInferenceService } from '../rss/categoryInferenceService'
+>>>>>>> 15af963d871800b157ef3afa1374fbeda9414cbe
 
 // Re-export types
 export type CreateContentData = CreateContentInput & { userId: string }
@@ -148,13 +152,27 @@ export class ContentService {
       throw new Error('Feed with this URL already exists')
     }
 
+    // Infer category if not provided
+    let category = data.category
+    if (!category) {
+      try {
+        console.log('Inferring category for RSS feed:', data.url)
+        const inferenceResult = await categoryInferenceService.inferCategory(data.url)
+        category = inferenceResult.category
+        console.log(`Inferred category: ${category} (confidence: ${inferenceResult.confidence})`)
+      } catch (error) {
+        console.warn('Category inference failed, using default:', error)
+        category = 'Other'
+      }
+    }
+
     return prisma.feed.create({
       data: {
         userId: data.userId,
         url: data.url,
         title: data.title,
         description: data.description,
-        category: data.category,
+        category,
       },
     })
   }
@@ -166,6 +184,7 @@ export class ContentService {
     })
 
     // Transform the data to match FeedData interface
+<<<<<<< HEAD
     return feeds.map(feed => {
       let keywordFilters: string[] | null = null
       let contentFilters: Record<string, boolean> | null = null
@@ -192,12 +211,29 @@ export class ContentService {
         keywordFilters,
         contentFilters,
         lastConfigUpdate: feed.lastConfigUpdate || null,
+=======
+    // Note: New fields will be available after Prisma client regeneration
+    return feeds.map(feed => {
+      // Validate and normalize updateFrequency to ensure it matches the expected union type
+      const updateFrequency = (feed as any).updateFrequency || 'daily'
+      const validFrequencies = ['manual', 'hourly', 'daily', 'weekly'] as const
+      const normalizedFrequency = validFrequencies.includes(updateFrequency as any)
+        ? updateFrequency as 'manual' | 'hourly' | 'daily' | 'weekly'
+        : 'daily'
+
+      return {
+        ...feed,
+        updateFrequency: normalizedFrequency,
+        keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
+        contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
+        lastConfigUpdate: (feed as any).lastConfigUpdate || null,
+>>>>>>> 15af963d871800b157ef3afa1374fbeda9414cbe
       }
     }) as FeedData[]
   }
 
   async getFeedById(id: string) {
-    return prisma.feed.findUnique({
+    const feed = await prisma.feed.findUnique({
       where: { id },
       include: {
         items: {
@@ -206,6 +242,23 @@ export class ContentService {
         },
       },
     })
+
+    if (!feed) return null
+
+    // Validate and normalize updateFrequency to ensure it matches the expected union type
+    const updateFrequency = (feed as any).updateFrequency || 'daily'
+    const validFrequencies = ['manual', 'hourly', 'daily', 'weekly'] as const
+    const normalizedFrequency = validFrequencies.includes(updateFrequency as any)
+      ? updateFrequency as 'manual' | 'hourly' | 'daily' | 'weekly'
+      : 'daily'
+
+    return {
+      ...feed,
+      updateFrequency: normalizedFrequency,
+      keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
+      contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
+      lastConfigUpdate: (feed as any).lastConfigUpdate || null,
+    } as FeedData
   }
 
   async updateFeed(id: string, data: UpdateFeedData) {

@@ -10,49 +10,52 @@ module.exports = {
   	extend: {
   		colors: {
   			primary: {
-  				'50': '#eff6ff',
-  				'500': '#3b82f6',
-  				'600': '#2563eb',
-  				'900': '#1e3a8a',
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
+  				50: 'rgb(var(--color-primary-50) / <alpha-value>)',
+  				100: 'rgb(var(--color-primary-100) / <alpha-value>)',
+  				500: 'rgb(var(--color-primary-500) / <alpha-value>)',
+  				600: 'rgb(var(--color-primary-600) / <alpha-value>)',
+  				700: 'rgb(var(--color-primary-700) / <alpha-value>)',
+  				900: 'rgb(var(--color-primary-900) / <alpha-value>)',
+  				DEFAULT: 'rgb(var(--primary))',
+  				foreground: 'rgb(var(--primary-foreground))'
   			},
-  			background: 'hsl(var(--background))',
-  			foreground: 'hsl(var(--foreground))',
+  			neutral: {
+  				50: 'rgb(var(--color-neutral-50) / <alpha-value>)',
+  				100: 'rgb(var(--color-neutral-100) / <alpha-value>)',
+  				200: 'rgb(var(--color-neutral-200) / <alpha-value>)',
+  				500: 'rgb(var(--color-neutral-500) / <alpha-value>)',
+  				600: 'rgb(var(--color-neutral-600) / <alpha-value>)',
+  				900: 'rgb(var(--color-neutral-900) / <alpha-value>)',
+  			},
+  			background: 'rgb(var(--color-background))',
+  			foreground: 'rgb(var(--color-foreground))',
   			card: {
-  				DEFAULT: 'hsl(var(--card))',
-  				foreground: 'hsl(var(--card-foreground))'
+  				DEFAULT: 'rgb(var(--card))',
+  				foreground: 'rgb(var(--card-foreground))'
   			},
   			popover: {
-  				DEFAULT: 'hsl(var(--popover))',
-  				foreground: 'hsl(var(--popover-foreground))'
+  				DEFAULT: 'rgb(var(--popover))',
+  				foreground: 'rgb(var(--popover-foreground))'
   			},
   			secondary: {
-  				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
+  				DEFAULT: 'rgb(var(--secondary))',
+  				foreground: 'rgb(var(--secondary-foreground))'
   			},
   			muted: {
-  				DEFAULT: 'hsl(var(--muted))',
-  				foreground: 'hsl(var(--muted-foreground))'
+  				DEFAULT: 'rgb(var(--muted))',
+  				foreground: 'rgb(var(--muted-foreground))'
   			},
   			accent: {
-  				DEFAULT: 'hsl(var(--accent))',
-  				foreground: 'hsl(var(--accent-foreground))'
+  				DEFAULT: 'rgb(var(--accent))',
+  				foreground: 'rgb(var(--accent-foreground))'
   			},
   			destructive: {
-  				DEFAULT: 'hsl(var(--destructive))',
-  				foreground: 'hsl(var(--destructive-foreground))'
+  				DEFAULT: 'rgb(var(--destructive))',
+  				foreground: 'rgb(var(--destructive-foreground))'
   			},
-  			border: 'hsl(var(--border))',
-  			input: 'hsl(var(--input))',
-  			ring: 'hsl(var(--ring))',
-  			chart: {
-  				'1': 'hsl(var(--chart-1))',
-  				'2': 'hsl(var(--chart-2))',
-  				'3': 'hsl(var(--chart-3))',
-  				'4': 'hsl(var(--chart-4))',
-  				'5': 'hsl(var(--chart-5))'
-  			}
+  			border: 'rgb(var(--border))',
+  			input: 'rgb(var(--input))',
+  			ring: 'rgb(var(--ring))'
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

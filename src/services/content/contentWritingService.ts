@@ -182,6 +182,11 @@ export class ContentWritingService {
     const prompt = this.buildSectionPrompt(sectionType, sectionData, request, sectionRole);
 
     try {
+      // Initialize Ollama client if not already done
+      if (!this.ollamaClient.isInitialized()) {
+        await this.ollamaClient.initialize();
+      }
+      
       const response = await this.ollamaClient.generateContent(prompt);
       return this.extractContentFromResponse(response);
     } catch (error) {

@@ -76,9 +76,17 @@ export function FeedStatusIndicator({
             color: 'text-yellow-700',
             bgColor: 'bg-yellow-50',
           }
-        } else {
+        } else if (healthScore > 0) {
           return {
             icon: AlertTriangle,
+            label: 'Poor',
+            variant: 'secondary' as const,
+            color: 'text-orange-700',
+            bgColor: 'bg-orange-50',
+          }
+        } else {
+          return {
+            icon: XCircle,
             label: 'Unhealthy',
             variant: 'destructive' as const,
             color: 'text-red-700',
@@ -162,7 +170,9 @@ export function FeedStatusIndicator({
                   ? 'bg-green-500'
                   : healthScore >= 0.5
                     ? 'bg-yellow-500'
-                    : 'bg-red-500'
+                    : healthScore > 0
+                      ? 'bg-orange-500'
+                      : 'bg-red-500'
               )}
               style={{ width: `${healthScore * 100}%` }}
             />
@@ -203,6 +213,8 @@ export function FeedStatusBadge({
           return { label: 'Healthy', variant: 'default' as const }
         } else if (healthScore >= 0.5) {
           return { label: 'Fair', variant: 'secondary' as const }
+        } else if (healthScore > 0) {
+          return { label: 'Poor', variant: 'secondary' as const }
         } else {
           return { label: 'Unhealthy', variant: 'destructive' as const }
         }

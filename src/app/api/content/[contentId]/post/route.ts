@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/services/database/prisma';
 
-interface RouteParams {
-  params: {
-    contentId: string;
-  };
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, context: any) {
   try {
-    const { contentId } = params;
+    const { contentId } = context.params;
 
     // Fetch the blog post content
     const content = await prisma.content.findUnique({
@@ -59,11 +53,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       wordCount: content.wordCount,
       readingTime: content.readingTime,
       generatedAt: content.generatedAt,
-      topic: content.topic ? {
-        id: content.topic.id,
-        name: content.topic.name,
-        description: content.topic.description
-      } : null,
+      topic: content.topic
+        ? {
+            id: content.topic.id,
+            name: content.topic.name,
+            description: content.topic.description
+          }
+        : null,
       author: content.user,
       metadata: {
         ...metadata,

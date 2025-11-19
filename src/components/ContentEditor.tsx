@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Button } from './ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import {
-  Bold,
-  Italic,
-  List,
-  Link,
-  Save,
-  Undo,
-  Redo,
-  FileText,
-  Upload,
-} from 'lucide-react'
+import { Toolbar } from './content-editor/Toolbar'
+import { EditorCanvas } from './content-editor/EditorCanvas'
+import { ExportPanel } from './content-editor/ExportPanel'
+import { ChangeTracker } from './content-editor/ChangeTracker'
+import { Skeleton } from './ui/skeleton'
+import { FileText } from 'lucide-react'
+import { apiClient } from '@/lib/api/client'
+import { toast } from '@/lib/hooks/useToast'
 
 interface ContentEditorProps {
   contentId: string
@@ -40,6 +36,11 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
   const [isLoading, setIsLoading] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [changes, setChanges] = useState<ContentChange[]>([])
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportHistory, setExportHistory] = useState<any[]>([])
+  const [showExportHistory, setShowExportHistory] = useState(false)
+  const [includeCitations, setIncludeCitations] = useState(false)
+  const [exportFormat, setExportFormat] = useState('markdown')
   const editorRef = useRef<HTMLDivElement>(null)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>()
 
@@ -53,26 +54,30 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
 
   const loadContent = useCallback(async () => {
     setIsLoading(true)
-    try {
-      const response = await fetch(`/api/content/${contentId}/edit`)
-      if (response.ok) {
-        const data = await response.json()
-        setContent(data.content || '')
-        setLastSaved(new Date(data.updatedAt))
-      }
-    } catch (error) {
-      console.error('Failed to load content:', error)
-    } finally {
-      setIsLoading(false)
+    const result = await apiClient.get(`/api/content/${contentId}/edit`)
+    if (result.success && result.data) {
+      setContent((result.data as any).content || '')
+      setLastSaved(new Date((result.data as any).updatedAt))
+    }
+    setIsLoading(false)
+  }, [contentId])
+
+  const loadExportHistory = useCallback(async () => {
+    const result = await apiClient.get(`/api/content/${contentId}/exports`)
+    if (result.success && result.data) {
+      setExportHistory((result.data as any).exports || [])
     }
   }, [contentId])
 
-  // Load content on mount
+  // Load content and export history on mount
   useEffect(() => {
-    if (contentId && !initialContent) {
-      loadContent()
+    if (contentId) {
+      if (!initialContent) {
+        loadContent()
+      }
+      loadExportHistory()
     }
-  }, [contentId, loadContent])
+  }, [contentId, initialContent, loadContent, loadExportHistory])
 
   // Time tracking
   useEffect(() => {
@@ -90,27 +95,17 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
   const handleAutoSave = useCallback(async () => {
     if (!contentId || readOnly) return
 
-    try {
-      const response = await fetch(`/api/content/${contentId}/edit`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content,
-          changes,
-          autoSave: true,
-          sessionId,
-          timeSpentMs: timeSpent,
-        }),
-      })
+    const result = await apiClient.put(`/api/content/${contentId}/edit`, {
+      content,
+      changes,
+      autoSave: true,
+      sessionId,
+      timeSpentMs: timeSpent,
+    })
 
-      if (response.ok) {
-        setLastSaved(new Date())
-        setChanges([])
-      }
-    } catch (error) {
-      console.error('Auto-save failed:', error)
+    if (result.success) {
+      setLastSaved(new Date())
+      setChanges([])
     }
   }, [contentId, readOnly, content, changes, sessionId, timeSpent])
 
@@ -130,35 +125,29 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
         clearTimeout(autoSaveTimeoutRef.current)
       }
     }
-  }, [content, handleAutoSave, initialContent, readOnly])
+  }, [content, initialContent, readOnly, handleAutoSave])
 
   const handleSave = async () => {
     if (!contentId || readOnly) return
 
     setIsLoading(true)
-    try {
-      const response = await fetch(`/api/content/${contentId}/edit`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content,
-          changes,
-          sessionId,
-          timeSpentMs: timeSpent,
-        }),
-      })
+    const result = await apiClient.put(`/api/content/${contentId}/edit`, {
+      content,
+      changes,
+      sessionId,
+      timeSpentMs: timeSpent,
+    })
 
-      if (response.ok) {
-        setLastSaved(new Date())
-        setChanges([])
-        onSave?.(content)
-      }
-    } catch (error) {
-      console.error('Save failed:', error)
-    } finally {
-      setIsLoading(false)
+    setIsLoading(false)
+
+    if (result.success) {
+      setLastSaved(new Date())
+      setChanges([])
+      onSave?.(content)
+      toast({
+        title: 'Content Saved',
+        description: 'Your changes have been saved successfully.',
+      })
     }
   }
 
@@ -211,39 +200,48 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
     }
   }
 
-  const exportContent = async (format: 'markdown' | 'html') => {
-    try {
-      const response = await fetch(`/api/content/${contentId}/export`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ format }),
-      })
+  const exportContent = async (format: 'markdown' | 'html' | 'pdf', citationStyle?: 'APA' | 'MLA' | 'Chicago') => {
+    setIsExporting(true)
+    const result = await apiClient.postBlob(`/api/content/${contentId}/export`, {
+      format,
+      includeCitations,
+      citationStyle
+    })
 
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `content-${contentId}.${format === 'markdown' ? 'md' : 'html'}`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-      }
-    } catch (error) {
-      console.error('Export failed:', error)
+    setIsExporting(false)
+
+    if (result.success && result.data) {
+      const url = window.URL.createObjectURL(result.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `content-${contentId}.${format === 'markdown' ? 'md' : format}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      // Reload export history
+      await loadExportHistory()
+
+      toast({
+        title: 'Export Complete',
+        description: `Content exported as ${format.toUpperCase()}.`,
+      })
     }
   }
 
   if (isLoading && !content) {
     return (
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2">Loading content...</span>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-32" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-10 w-24" />
           </div>
         </CardContent>
       </Card>
@@ -255,117 +253,56 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <FileText className="h-5 w-5" aria-hidden="true" />
             Content Editor
           </CardTitle>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            {lastSaved && (
-              <span>Last saved: {lastSaved.toLocaleTimeString()}</span>
-            )}
-            <span>
-              Session: {Math.floor(timeSpent / 1000 / 60)}m{' '}
-              {Math.floor((timeSpent / 1000) % 60)}s
-            </span>
-            {changes.length > 0 && (
-              <span className="text-orange-600">
-                {changes.length} unsaved changes
-              </span>
-            )}
-          </div>
+          <ChangeTracker
+            changes={changes}
+            lastSaved={lastSaved}
+            timeSpent={timeSpent}
+          />
         </div>
 
-        {!readOnly && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => execCommand('bold')}
-              title="Bold (Ctrl+B)"
-            >
-              <Bold className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => execCommand('italic')}
-              title="Italic (Ctrl+I)"
-            >
-              <Italic className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => execCommand('insertUnorderedList')}
-              title="Bullet List"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                execCommand('createLink', prompt('Enter URL:') || '')
-              }
-              title="Insert Link"
-            >
-              <Link className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={insertImage}
-              title="Insert Image"
-            >
-              <Upload className="h-4 w-4" />
-            </Button>
-            <div className="w-px h-6 bg-gray-300 mx-2" />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportContent('markdown')}
-            >
-              Export MD
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportContent('html')}
-            >
-              Export HTML
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={isLoading}
-              className="ml-auto"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isLoading ? 'Saving...' : 'Save'}
-            </Button>
-          </div>
-        )}
+        <Toolbar
+          onBold={() => execCommand('bold')}
+          onItalic={() => execCommand('italic')}
+          onList={() => execCommand('insertUnorderedList')}
+          onLink={() => execCommand('createLink', prompt('Enter URL:') || '')}
+          onImage={insertImage}
+          onShowHistory={() => setShowExportHistory(!showExportHistory)}
+          includeCitations={includeCitations}
+          onToggleCitations={setIncludeCitations}
+          exportFormat={exportFormat}
+          onExportFormatChange={(format) => {
+            setExportFormat(format)
+            if (format !== 'pdf') {
+              exportContent(format as 'markdown' | 'html')
+            }
+          }}
+          isExporting={isExporting}
+          onSave={handleSave}
+          isLoading={isLoading}
+          readOnly={readOnly}
+        />
       </CardHeader>
 
       <CardContent>
-        <div
+        <EditorCanvas
           ref={editorRef}
-          contentEditable={!readOnly}
-          className={`min-h-[400px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 prose prose-sm max-w-none ${
-            readOnly ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
-          }`}
-          onInput={(e) => handleContentChange(e.currentTarget.innerHTML)}
+          content={content}
+          onChange={handleContentChange}
           onKeyDown={handleKeyDown}
-          dangerouslySetInnerHTML={{ __html: content }}
-          suppressContentEditableWarning={true}
-          role="textbox"
-          aria-label="Content editor"
-          aria-multiline="true"
-          aria-describedby="editor-help"
-          tabIndex={0}
+          readOnly={readOnly}
         />
         <div id="editor-help" className="sr-only">
           Rich text editor. Use Ctrl+B for bold, Ctrl+I for italic, Ctrl+S to
-          save. Tab to navigate between toolbar buttons.
+          save. Tab to navigate between toolbar buttons. Content is automatically saved every 30 seconds.
         </div>
+
+        <ExportPanel
+          exportHistory={exportHistory}
+          showHistory={showExportHistory}
+        />
       </CardContent>
     </Card>
   )

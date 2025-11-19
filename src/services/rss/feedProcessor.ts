@@ -2,6 +2,7 @@ import { rssService, RSSFeed, RSSItem, FetchResult } from './rssService'
 import { contentService, FeedData } from '../database/contentService'
 import { prisma } from '../database/prisma'
 import { analysisJobQueue } from '../analysis/analysisJobQueue'
+import { autoContentGenerator } from './autoContentGenerator'
 
 export interface ProcessingResult {
   feedId: string
@@ -170,7 +171,7 @@ export class FeedProcessor {
   }
 
   /**
-   * Create feed item in database and trigger analysis
+   * Create feed item in database and trigger analysis and auto content generation
    */
   private async createFeedItem(feedId: string, item: RSSItem): Promise<void> {
     const content = item.content || item.contentSnippet || ''
@@ -205,6 +206,41 @@ export class FeedProcessor {
     } catch (error) {
       console.error(`Failed to queue analysis for feed item ${feedItem.id}:`, error)
       // Don't fail the feed processing if analysis queuing fails
+    }
+
+    // Trigger auto content generation for new articles
+    try {
+      // Get the feed to find the user ID
+      const feed = await prisma.feed.findUnique({
+        where: { id: feedId },
+        select: { userId: true } as any
+      })
+
+      if (feed && (feed as any).userId) {
+        // Run auto content generation asynchronously (don't await)
+        autoContentGenerator.processArticle(
+          feedItem.id,
+          item.title || 'Untitled',
+          content,
+          (feed as any).userId,
+          {
+            style: 'professional',
+            length: 'medium',
+            includeSources: true,
+            enableAutoGeneration: true,
+            maxSearchResults: 3
+          }
+        ).then(result => {
+          if (result) {
+            console.log(`Auto-generated content for article: ${item.title}`)
+          }
+        }).catch(error => {
+          console.error(`Auto content generation failed for article ${feedItem.id}:`, error)
+        })
+      }
+    } catch (error) {
+      console.error(`Failed to trigger auto content generation for feed item ${feedItem.id}:`, error)
+      // Don't fail the feed processing if auto generation fails
     }
   }
 

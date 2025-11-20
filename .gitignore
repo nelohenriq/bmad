@@ -46,3 +46,10 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# Ollama
+.ollama/
+lib/ollama
+
+# Lightning AI
+.lightning_studio/

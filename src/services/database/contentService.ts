@@ -1,16 +1,13 @@
 import { prisma } from './prisma'
-<<<<<<< HEAD
 import { string, z } from 'zod'
-import { 
-  createContentSchema, 
-  updateFeedSchema, 
-  CreateContentInput, 
-  UpdateFeedInput, 
-  CreateFeedInput 
+import {
+  createContentSchema,
+  updateFeedSchema,
+  CreateContentInput,
+  UpdateFeedInput,
+  CreateFeedInput
 } from '@/lib/validations/schema'
-=======
 import { categoryInferenceService } from '../rss/categoryInferenceService'
->>>>>>> 15af963d871800b157ef3afa1374fbeda9414cbe
 
 // Re-export types
 export type CreateContentData = CreateContentInput & { userId: string }
@@ -60,7 +57,7 @@ export class ContentService {
   async createContent(data: CreateContentData) {
     // Validate input
     const validData = createContentSchema.parse(data)
-    
+
     return prisma.content.create({
       data: {
         userId: data.userId,
@@ -184,34 +181,6 @@ export class ContentService {
     })
 
     // Transform the data to match FeedData interface
-<<<<<<< HEAD
-    return feeds.map(feed => {
-      let keywordFilters: string[] | null = null
-      let contentFilters: Record<string, boolean> | null = null
-
-      try {
-        if (feed.keywordFilters) {
-          keywordFilters = JSON.parse(feed.keywordFilters)
-        }
-      } catch (e) {
-        console.error(`Failed to parse keywordFilters for feed ${feed.id}`, e)
-      }
-
-      try {
-        if (feed.contentFilters) {
-          contentFilters = JSON.parse(feed.contentFilters)
-        }
-      } catch (e) {
-        console.error(`Failed to parse contentFilters for feed ${feed.id}`, e)
-      }
-
-      return {
-        ...feed,
-        updateFrequency: (feed.updateFrequency as any) || 'daily',
-        keywordFilters,
-        contentFilters,
-        lastConfigUpdate: feed.lastConfigUpdate || null,
-=======
     // Note: New fields will be available after Prisma client regeneration
     return feeds.map(feed => {
       // Validate and normalize updateFrequency to ensure it matches the expected union type
@@ -227,7 +196,6 @@ export class ContentService {
         keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
         contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
         lastConfigUpdate: (feed as any).lastConfigUpdate || null,
->>>>>>> 15af963d871800b157ef3afa1374fbeda9414cbe
       }
     }) as FeedData[]
   }
@@ -264,7 +232,7 @@ export class ContentService {
   async updateFeed(id: string, data: UpdateFeedData) {
     // Validate using Zod schema (partial validation for updates)
     const validationResult = updateFeedSchema.safeParse(data)
-    
+
     if (!validationResult.success) {
       throw new Error(`Validation failed: ${validationResult.error.message}`)
     }
@@ -281,7 +249,7 @@ export class ContentService {
     if (validData.contentFilters !== undefined) {
       prismaData.contentFilters = validData.contentFilters ? JSON.stringify(validData.contentFilters) : null
     }
-    
+
     // Add timestamp if not present
     if (!prismaData.lastConfigUpdate) {
       prismaData.lastConfigUpdate = new Date()

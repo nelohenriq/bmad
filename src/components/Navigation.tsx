@@ -54,17 +54,10 @@ export function Navigation() {
                     key={item.name}
                     href={item.href}
                     className={cn(
-<<<<<<< HEAD
-                      'inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors',
-                      pathname === item.href
-                        ? 'border-blue-500 text-gray-900'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-=======
                       'inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-t-md transition-colors',
                       isCurrent
                         ? 'border-blue-500 text-gray-900 dark:text-gray-100'
                         : 'border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-200'
->>>>>>> 15af963d871800b157ef3afa1374fbeda9414cbe
                     )}
                     role="menuitem"
                     aria-current={isCurrent ? 'page' : undefined}
@@ -79,18 +72,6 @@ export function Navigation() {
               })}
             </div>
           </div>
-<<<<<<< HEAD
-          <div className="hidden sm:ml-6 sm:flex sm:items-center">
-            <div className="flex items-center space-x-3">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">Demo User</p>
-                <p className="text-xs text-gray-500">demo@neuralfeed.studio</p>
-              </div>
-              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                DU
-              </div>
-=======
-
           {/* Desktop theme toggle and mobile menu button */}
           <div className="flex items-center gap-3">
             {/* Desktop theme toggle */}
@@ -121,7 +102,6 @@ export function Navigation() {
                   <Menu className="block h-6 w-6" aria-hidden="true" />
                 )}
               </button>
->>>>>>> 15af963d871800b157ef3afa1374fbeda9414cbe
             </div>
           </div>
         </div>

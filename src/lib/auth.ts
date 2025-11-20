@@ -17,7 +17,7 @@ const MOCK_USER: UserSession = {
 
 export async function getSession(): Promise<UserSession | null> {
   // In a real app, we would verify the session token from cookies
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const sessionToken = cookieStore.get('session_token')
 
   // For this demo, we'll simulate a logged-in user if a specific cookie exists

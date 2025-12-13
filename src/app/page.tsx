@@ -11,6 +11,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { toast } from '@/lib/hooks/useToast'
+import Link from 'next/link'
 
 export default function Home() {
   return (
@@ -37,12 +38,12 @@ export default function Home() {
               automated publishing, and intelligent topic discovery.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
+              <Link
                 href="/content"
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition-shadow inline-block text-center"
               >
                 Start Creating Content
-              </a>
+              </Link>
               <button
                 className="border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-8 py-3 rounded-lg font-semibold hover:border-gray-400 dark:hover:border-gray-500 transition-colors bg-white dark:bg-gray-800"
                 onClick={() => toast({

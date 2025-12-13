@@ -31,6 +31,7 @@ class ApiClient {
     const url = `${this.baseURL}${endpoint}`
     const config: RequestInit = {
       ...options,
+      credentials: 'include', // Include cookies for authentication
       headers: {
         ...this.defaultHeaders,
         ...options.headers,
@@ -164,6 +165,7 @@ class ApiClient {
     const url = `${this.baseURL}${endpoint}`
     const config: RequestInit = {
       ...options,
+      credentials: 'include', // Include cookies for authentication
       method: 'POST',
       headers: {
         ...this.defaultHeaders,

@@ -8,6 +8,8 @@ import {
   CreateFeedInput
 } from '@/lib/validations/schema'
 import { categoryInferenceService } from '../rss/categoryInferenceService'
+import { backupService, BackupResult, RestoreResult } from './backupService'
+import { feedProcessor } from '../rss/feedProcessor'
 
 // Re-export types
 export type CreateContentData = CreateContentInput & { userId: string }
@@ -34,6 +36,7 @@ export interface FeedData {
   contentFilters?: Record<string, boolean> | null
   lastConfigUpdate?: Date | null
   lastFetched: Date | null
+  processingStatus?: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -67,6 +70,7 @@ export class ContentService {
         length: validData.length,
         model: validData.model,
         prompt: validData.prompt,
+        tags: validData.tags ? JSON.stringify(validData.tags) : null,
       },
     })
   }
@@ -74,6 +78,25 @@ export class ContentService {
   async getContentById(id: string) {
     return prisma.content.findUnique({
       where: { id },
+    })
+  }
+
+  async updateContent(id: string, data: Partial<Omit<CreateContentData, 'userId'> & { wordCount?: number }>) {
+    // Note: Validation is handled at the API level, so we trust the input here
+
+    return prisma.content.update({
+      where: { id },
+      data: {
+        ...(data.title !== undefined && { title: data.title }),
+        ...(data.content !== undefined && { content: data.content }),
+        ...(data.style !== undefined && { style: data.style }),
+        ...(data.length !== undefined && { length: data.length }),
+        ...(data.model !== undefined && { model: data.model }),
+        ...(data.prompt !== undefined && { prompt: data.prompt }),
+        ...(data.tags !== undefined && { tags: data.tags ? JSON.stringify(data.tags) : null }),
+        ...(data.wordCount !== undefined && { wordCount: data.wordCount }),
+        updatedAt: new Date(),
+      },
     })
   }
 
@@ -132,6 +155,45 @@ export class ContentService {
     })
   }
 
+  async deleteContent(id: string, userId: string) {
+    // First check if the content exists and belongs to the user
+    const content = await prisma.content.findFirst({
+      where: {
+        id,
+        userId
+      }
+    })
+
+    if (!content) {
+      throw new Error('Content not found or access denied')
+    }
+
+    // Delete associated content sources first (due to foreign key constraints)
+    await prisma.contentSource.deleteMany({
+      where: { contentId: id }
+    })
+
+    // Delete associated content versions
+    await prisma.contentVersion.deleteMany({
+      where: { contentId: id }
+    })
+
+    // Delete associated content chunks
+    await prisma.contentChunk.deleteMany({
+      where: { contentId: id }
+    })
+
+    // Delete associated feedbacks
+    await prisma.contentFeedback.deleteMany({
+      where: { contentId: id }
+    })
+
+    // Finally delete the content
+    return prisma.content.delete({
+      where: { id }
+    })
+  }
+
   // RSS Feed Management Methods
 
   async addFeed(data: CreateFeedData) {
@@ -163,7 +225,7 @@ export class ContentService {
       }
     }
 
-    return prisma.feed.create({
+    const feed = await prisma.feed.create({
       data: {
         userId: data.userId,
         url: data.url,
@@ -172,6 +234,35 @@ export class ContentService {
         category,
       },
     })
+
+    // Automatically process the feed in the background
+    // Convert to FeedData format for the processor
+    const feedData: FeedData = {
+      id: feed.id,
+      userId: feed.userId,
+      url: feed.url,
+      title: feed.title,
+      description: feed.description,
+      category: feed.category,
+      isActive: feed.isActive,
+      updateFrequency: (feed as any).updateFrequency,
+      keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
+      contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
+      lastConfigUpdate: (feed as any).lastConfigUpdate,
+      lastFetched: feed.lastFetched,
+      processingStatus: (feed as any).processingStatus || 'idle',
+      createdAt: feed.createdAt,
+      updatedAt: feed.updatedAt,
+    }
+
+    // Process the feed asynchronously (fire-and-forget)
+    feedProcessor.processFeed(feedData).then(result => {
+      console.log(`Background processing completed for feed ${feed.id}:`, result)
+    }).catch(error => {
+      console.error(`Background processing failed for feed ${feed.id}:`, error)
+    })
+
+    return feed
   }
 
   async getUserFeeds(userId: string) {
@@ -196,6 +287,7 @@ export class ContentService {
         keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
         contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
         lastConfigUpdate: (feed as any).lastConfigUpdate || null,
+        processingStatus: (feed as any).processingStatus || 'idle',
       }
     }) as FeedData[]
   }
@@ -226,6 +318,7 @@ export class ContentService {
       keywordFilters: (feed as any).keywordFilters ? JSON.parse((feed as any).keywordFilters) : null,
       contentFilters: (feed as any).contentFilters ? JSON.parse((feed as any).contentFilters) : null,
       lastConfigUpdate: (feed as any).lastConfigUpdate || null,
+      processingStatus: (feed as any).processingStatus || 'idle',
     } as FeedData
   }
 
@@ -262,11 +355,32 @@ export class ContentService {
   }
 
   async deleteFeed(id: string) {
-    // Delete feed items first due to foreign key constraint
+    // Delete in correct order due to foreign key constraints:
+    // 1. Delete content analyses (references feed items)
+    // 2. Delete feed items (references feed)
+    // 3. Delete feed
+
+    // First, get all feed item IDs for this feed
+    const feedItems = await prisma.feedItem.findMany({
+      where: { feedId: id },
+      select: { id: true }
+    })
+
+    const feedItemIds = feedItems.map(item => item.id)
+
+    // Delete content analyses for these feed items
+    if (feedItemIds.length > 0) {
+      await prisma.contentAnalysis.deleteMany({
+        where: { feedItemId: { in: feedItemIds } }
+      })
+    }
+
+    // Delete feed items
     await prisma.feedItem.deleteMany({
       where: { feedId: id },
     })
 
+    // Finally delete the feed
     return prisma.feed.delete({
       where: { id },
     })
@@ -292,6 +406,45 @@ export class ContentService {
       inactive: total - active,
       thisMonth,
     }
+  }
+
+  async getFeedItemCounts(userId: string) {
+    const feeds = await prisma.feed.findMany({
+      where: { userId },
+      select: { id: true },
+    })
+
+    const itemCounts = await Promise.all(
+      feeds.map(async (feed) => {
+        const count = await prisma.feedItem.count({
+          where: { feedId: feed.id },
+        })
+        return { feedId: feed.id, count }
+      })
+    )
+
+    return itemCounts.reduce((acc, { feedId, count }) => {
+      acc[feedId] = count
+      return acc
+    }, {} as Record<string, number>)
+  }
+
+  // Backup and Restore Methods
+
+  async createDatabaseBackup(backupDir?: string, filename?: string): Promise<BackupResult> {
+    return backupService.createBackup(backupDir, filename)
+  }
+
+  async restoreDatabaseFromBackup(backupPath: string): Promise<RestoreResult> {
+    return backupService.restoreFromBackup(backupPath)
+  }
+
+  async listDatabaseBackups(backupDir?: string) {
+    return backupService.listBackups(backupDir)
+  }
+
+  async getBackupInfo(backupPath: string) {
+    return backupService.getBackupInfo(backupPath)
   }
 }
 

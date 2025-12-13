@@ -1,0 +1,70 @@
+{
+  "timestamp": "2025-11-20T07:27:21.833Z",
+  "results": [
+    {
+      "suite": "Data Integrity",
+      "test": "Record count validation",
+      "passed": false,
+      "details": "Feeds: 29/2, Items: 801/2"
+    },
+    {
+      "suite": "Data Integrity",
+      "test": "Referential integrity",
+      "passed": false,
+      "error": "\nInvalid `prisma.$queryRaw()` invocation:\n\n\nRaw query failed. Code: `1`. Message: `no such column: fi.feed_id`"
+    },
+    {
+      "suite": "Data Integrity",
+      "test": "UUID format validation",
+      "passed": false,
+      "details": "Invalid UUIDs: 830"
+    },
+    {
+      "suite": "Data Consistency",
+      "test": "Feed URL uniqueness",
+      "passed": true,
+      "details": "Duplicate URLs found: 0"
+    },
+    {
+      "suite": "Data Consistency",
+      "test": "Date field validation",
+      "passed": true,
+      "details": "Invalid dates found: 0"
+    },
+    {
+      "suite": "Data Consistency",
+      "test": "Required field validation",
+      "passed": false,
+      "details": "Invalid feeds: 0, Invalid items: 0"
+    },
+    {
+      "suite": "Performance",
+      "test": "Query performance baseline",
+      "passed": true,
+      "details": "Query took 15ms"
+    },
+    {
+      "suite": "Performance",
+      "test": "Index effectiveness",
+      "passed": false,
+      "error": "\nInvalid `prisma.$queryRaw()` invocation:\n\n\nRaw query failed. Code: `1`. Message: `no such table: pg_stat_user_indexes`"
+    },
+    {
+      "suite": "Schema Validation",
+      "test": "Table structure validation",
+      "passed": false,
+      "error": "\nInvalid `prisma.$queryRaw()` invocation:\n\n\nRaw query failed. Code: `1`. Message: `no such table: pg_tables`"
+    },
+    {
+      "suite": "Schema Validation",
+      "test": "Foreign key constraints",
+      "passed": false,
+      "error": "\nInvalid `prisma.$queryRaw()` invocation:\n\n\nRaw query failed. Code: `1`. Message: `unrecognized token: \":\"`"
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "total": 10,
+    "success": false
+  }
+}

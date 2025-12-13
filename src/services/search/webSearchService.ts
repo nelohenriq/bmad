@@ -34,7 +34,8 @@ export class WebSearchService {
     exa: 'https://api.exa.ai/search',
     google: 'https://www.googleapis.com/customsearch/v1',
     bing: 'https://api.bing.microsoft.com/v7.0/search',
-    serpapi: 'https://serpapi.com/search'
+    serpapi: 'https://serpapi.com/search',
+    duckduckgo: 'https://api.duckduckgo.com'
   }
 
   // API Keys from environment variables
@@ -60,7 +61,20 @@ export class WebSearchService {
       let results: SearchResult[] = []
 
       if (this.apiKeys.tavily) {
-        results = await this.performTavilySearch(query, maxResults)
+        try {
+          results = await this.performTavilySearch(query, maxResults)
+        } catch (tavilyError) {
+          // Check if it's a rate limit error (429 or 432)
+          if (tavilyError instanceof Error &&
+              (tavilyError.message.includes('429') || tavilyError.message.includes('432'))) {
+            console.log('Tavily rate limited, falling back to DuckDuckGo search')
+            // Fallback to DuckDuckGo for rate limit errors
+            results = await this.performDuckDuckGoSearch(query, maxResults)
+          } else {
+            // Re-throw non-rate-limit errors
+            throw tavilyError
+          }
+        }
       } else if (this.apiKeys.exa) {
         results = await this.performExaSearch(query, maxResults)
       } else if (this.apiKeys.serpapi) {
@@ -170,64 +184,92 @@ export class WebSearchService {
    * Uses search first, then extracts content from top results for richer snippets
    */
   private async performTavilySearch(query: string, maxResults: number): Promise<SearchResult[]> {
-    // First, perform search to get URLs
-    const searchResponse = await fetch(this.SEARCH_APIS.tavily, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKeys.tavily}`
-      },
-      body: JSON.stringify({
-        query,
-        max_results: Math.min(maxResults, 3), // Get fewer but better results
-        include_answer: false,
-        include_raw_content: false,
-        search_depth: "advanced" // Better search quality
+    // Create AbortController for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+    try {
+      // First, perform search to get URLs
+      const searchResponse = await fetch(this.SEARCH_APIS.tavily, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKeys.tavily}`
+        },
+        body: JSON.stringify({
+          query,
+          max_results: Math.min(maxResults, 3), // Get fewer but better results
+          include_answer: false,
+          include_raw_content: false,
+          search_depth: "advanced" // Better search quality
+        }),
+        signal: controller.signal
       })
-    })
 
-    if (!searchResponse.ok) {
-      throw new Error(`Tavily search request failed: ${searchResponse.status}`)
-    }
+      clearTimeout(timeoutId)
 
-    const searchData = await searchResponse.json()
-    const results: SearchResult[] = []
+      if (!searchResponse.ok) {
+        throw new Error(`Tavily search request failed: ${searchResponse.status}`)
+      }
 
-    if (searchData.results && searchData.results.length > 0) {
-      // Extract content from top 2 results for richer snippets
-      const topUrls = searchData.results.slice(0, 2).map((r: any) => r.url)
+      const searchData = await searchResponse.json()
+      const results: SearchResult[] = []
 
-      if (topUrls.length > 0) {
-        try {
-          const extractResponse = await fetch('https://api.tavily.com/extract', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${this.apiKeys.tavily}`
-            },
-            body: JSON.stringify({
-              urls: topUrls,
-              include_images: false
+      if (searchData.results && searchData.results.length > 0) {
+        // Extract content from top 2 results for richer snippets
+        const topUrls = searchData.results.slice(0, 2).map((r: any) => r.url)
+
+        if (topUrls.length > 0) {
+          try {
+            // Create timeout for extract call
+            const extractController = new AbortController()
+            const extractTimeoutId = setTimeout(() => extractController.abort(), 15000) // 15 second timeout for extract
+
+            const extractResponse = await fetch('https://api.tavily.com/extract', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.apiKeys.tavily}`
+              },
+              body: JSON.stringify({
+                urls: topUrls,
+                include_images: false
+              }),
+              signal: extractController.signal
             })
-          })
 
-          if (extractResponse.ok) {
-            const extractData = await extractResponse.json()
+            clearTimeout(extractTimeoutId)
 
-            // Create results with extracted content
-            for (let i = 0; i < Math.min(searchData.results.length, maxResults); i++) {
-              const searchResult = searchData.results[i]
-              const extractedContent = extractData.results?.find((e: any) => e.url === searchResult.url)
+            if (extractResponse.ok) {
+              const extractData = await extractResponse.json()
 
-              results.push({
-                title: searchResult.title,
-                url: searchResult.url,
-                snippet: extractedContent?.content?.substring(0, 500) || searchResult.content || searchResult.snippet || '',
-                source: this.extractDomain(searchResult.url),
-                publishedDate: searchResult.published_date ? new Date(searchResult.published_date).toISOString() : undefined
-              })
+              // Create results with extracted content
+              for (let i = 0; i < Math.min(searchData.results.length, maxResults); i++) {
+                const searchResult = searchData.results[i]
+                const extractedContent = extractData.results?.find((e: any) => e.url === searchResult.url)
+
+                results.push({
+                  title: searchResult.title,
+                  url: searchResult.url,
+                  snippet: extractedContent?.content?.substring(0, 500) || searchResult.content || searchResult.snippet || '',
+                  source: this.extractDomain(searchResult.url),
+                  publishedDate: searchResult.published_date ? new Date(searchResult.published_date).toISOString() : undefined
+                })
+              }
+            } else {
+              // Fallback to search results only
+              for (const result of searchData.results.slice(0, maxResults)) {
+                results.push({
+                  title: result.title,
+                  url: result.url,
+                  snippet: result.content || result.snippet || '',
+                  source: this.extractDomain(result.url),
+                  publishedDate: result.published_date ? new Date(result.published_date).toISOString() : undefined
+                })
+              }
             }
-          } else {
+          } catch (extractError) {
+            console.warn('Tavily extract failed, using search results only:', extractError)
             // Fallback to search results only
             for (const result of searchData.results.slice(0, maxResults)) {
               results.push({
@@ -239,23 +281,18 @@ export class WebSearchService {
               })
             }
           }
-        } catch (extractError) {
-          console.warn('Tavily extract failed, using search results only:', extractError)
-          // Fallback to search results only
-          for (const result of searchData.results.slice(0, maxResults)) {
-            results.push({
-              title: result.title,
-              url: result.url,
-              snippet: result.content || result.snippet || '',
-              source: this.extractDomain(result.url),
-              publishedDate: result.published_date ? new Date(result.published_date).toISOString() : undefined
-            })
-          }
         }
       }
-    }
 
-    return results
+      return results
+
+    } catch (error) {
+      clearTimeout(timeoutId)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Tavily search request timed out after 30 seconds')
+      }
+      throw error
+    }
   }
 
   /**
@@ -415,15 +452,98 @@ export class WebSearchService {
   }
 
   /**
+   * DuckDuckGo Instant Answer API (FREE - no API key required)
+   * Uses the public DuckDuckGo instant answer API for basic search results
+   */
+  private async performDuckDuckGoSearch(query: string, maxResults: number): Promise<SearchResult[]> {
+    try {
+      // DuckDuckGo Instant Answer API - free and no key required
+      const searchUrl = `${this.SEARCH_APIS.duckduckgo}/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`
+
+      const response = await fetch(searchUrl, {
+        headers: {
+          'User-Agent': 'NeuralFeedStudio/1.0 (https://github.com/your-repo)'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`DuckDuckGo search request failed: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const results: SearchResult[] = []
+
+      // DuckDuckGo Instant Answer provides different types of results
+      // Try to extract the most relevant information
+
+      // First, check for instant answer
+      if (data.Answer) {
+        results.push({
+          title: `Instant Answer for "${query}"`,
+          url: `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+          snippet: data.Answer,
+          source: 'DuckDuckGo',
+          publishedDate: undefined
+        })
+      }
+
+      // Then check for abstract (Wikipedia/similar)
+      if (data.Abstract && results.length < maxResults) {
+        results.push({
+          title: data.Heading || `About "${query}"`,
+          url: data.AbstractURL || `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+          snippet: data.Abstract,
+          source: data.AbstractSource || 'DuckDuckGo',
+          publishedDate: undefined
+        })
+      }
+
+      // Add related topics if we still need results
+      if (data.RelatedTopics && results.length < maxResults) {
+        for (const topic of data.RelatedTopics.slice(0, maxResults - results.length)) {
+          if (topic.Text && topic.FirstURL) {
+            results.push({
+              title: topic.Text.split(' - ')[0] || topic.Text,
+              url: topic.FirstURL,
+              snippet: topic.Text,
+              source: this.extractDomain(topic.FirstURL),
+              publishedDate: undefined
+            })
+          }
+        }
+      }
+
+      // If no good results, provide a basic fallback
+      if (results.length === 0) {
+        results.push({
+          title: `Search results for "${query}"`,
+          url: `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+          snippet: `Search results from DuckDuckGo for: ${query}`,
+          source: 'DuckDuckGo',
+          publishedDate: undefined
+        })
+      }
+
+      return results.slice(0, maxResults)
+
+    } catch (error) {
+      console.warn('DuckDuckGo search failed:', error)
+      // Fallback to mock search if DuckDuckGo fails
+      return this.performMockSearch(query, maxResults)
+    }
+  }
+
+  /**
    * Check which APIs are available
    */
-  getAvailableApis(): { tavily: boolean; exa: boolean; serpapi: boolean; google: boolean; bing: boolean; mock: boolean } {
+  getAvailableApis(): { tavily: boolean; exa: boolean; serpapi: boolean; google: boolean; bing: boolean; duckduckgo: boolean; mock: boolean } {
     return {
       tavily: !!this.apiKeys.tavily,
       exa: !!this.apiKeys.exa,
       serpapi: !!this.apiKeys.serpapi,
       google: !!(this.apiKeys.google && this.apiKeys.googleCx),
       bing: !!this.apiKeys.bing,
+      duckduckgo: true, // Always available (free)
       mock: true // Always available as fallback
     }
   }

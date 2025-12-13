@@ -76,6 +76,9 @@ Guidelines:
     const startTime = Date.now()
 
     try {
+      // Initialize AI service if not already done
+      await aiService.initialize()
+
       await analysisLogger.logAnalysisStart(request.feedItemId)
 
       // Check cache first
@@ -143,6 +146,8 @@ Guidelines:
         cleanResponse = cleanResponse.replace(/^```\s*/, '').replace(/\s*```$/, '')
       }
 
+      console.log('Cleaned AI response:', cleanResponse.substring(0, 200) + '...')
+
       const parsed = JSON.parse(cleanResponse)
 
       // Validate and normalize the response
@@ -150,14 +155,18 @@ Guidelines:
 
     } catch (parseError) {
       console.error('Failed to parse analysis response:', parseError)
-      throw new Error(`Invalid analysis response format: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`)
+      console.error('Raw AI response:', response)
+
+      // If parsing fails, return fallback analysis instead of throwing
+      console.warn('Using fallback analysis due to parsing error')
+      return this.getFallbackAnalysis({ feedItemId: 'unknown', title: 'Unknown', content: response })
     }
   }
 
   private validateAnalysisResult(result: any): AnalysisResult {
     // Ensure required fields exist with defaults
     const validated: AnalysisResult = {
-      topics: Array.isArray(result.topics) ? result.topics.map(this.validateTopic) : [],
+      topics: Array.isArray(result.topics) ? result.topics.map((topic: any) => this.validateTopic(topic)) : [],
       relevanceScore: this.clampScore(result.relevanceScore || 0.5),
       confidence: this.clampScore(result.confidence || 0.5),
       sentiment: this.validateSentiment(result.sentiment),

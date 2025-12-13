@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-    provider = "sqlite"
-    url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -108,6 +108,9 @@ model Feed {
     fetchRetryCount Int       @default(0)
     healthScore     Float     @default(1.0)
 
+    // Processing status
+    processingStatus String?  @default("idle") // 'idle', 'processing', 'completed', 'failed'
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
@@ -136,6 +139,11 @@ model FeedItem {
     isProcessed Boolean @default(false)
     contentHash String?
 
+    // Background processing status
+    processingStatus String? @default("pending") // 'pending', 'processing', 'completed', 'failed'
+    processingStartedAt DateTime?
+    processingCompletedAt DateTime?
+
     // RSS parsing metadata
     categories   String?
     mediaContent String?
@@ -150,68 +158,88 @@ model FeedItem {
 }
 
 model Content {
-    id     String @id @default(cuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id])
+     id     String @id @default(cuid())
+     userId String
+     user   User   @relation(fields: [userId], references: [id])
 
-    // Topic relationship for outline generation
-    topicId String?
-    topic   Topic?  @relation(fields: [topicId], references: [id])
+     // Topic relationship for outline generation
+     topicId String?
+     topic   Topic?  @relation(fields: [topicId], references: [id])
 
-    title   String
-    content String
-    style   String
-    length  String
+     title   String
+     content String
+     style   String
+     length  String
+     tags    String? // JSON array of tags
 
-    // Outline generation support
-    outline     String?
-    status      String  @default("draft") // draft, outline_generated, writing, editing, final
-    wordCount   Int?
-    readingTime Int?
+     // Outline generation support
+     outline     String?
+     status      String  @default("draft") // draft, outline_generated, writing, editing, final
+     wordCount   Int?
+     readingTime Int?
 
-    // AI generation metadata
-    model       String
-    prompt      String?
-    generatedAt DateTime @default(now())
+     // AI generation metadata
+     model       String
+     prompt      String?
+     generatedAt DateTime @default(now())
 
-    // Outline generation metadata
-    outlineGeneratedAt DateTime?
-    outlineModel       String?
-    outlinePrompt      String?
-    outlineConfidence  Float?
+     // Outline generation metadata
+     outlineGeneratedAt DateTime?
+     outlineModel       String?
+     outlinePrompt      String?
+     outlineConfidence  Float?
 
-    // Processing status
-    isPublished Boolean   @default(false)
-    publishedAt DateTime?
+     // Processing status
+     isPublished Boolean   @default(false)
+     publishedAt DateTime?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+     createdAt DateTime @default(now())
+     updatedAt DateTime @updatedAt
 
-    // Relations
-    sources         ContentSource[]
-    contentVersions ContentVersion[]
-    feedbacks       ContentFeedback[]
-    consistencyChecks ConsistencyCheck[]
-    factChecks      FactCheckResult[]
-    citations       Citation[]
-    exports         ContentExport[]
+     // Relations
+     sources         ContentSource[]
+     contentVersions ContentVersion[]
+     chunks          ContentChunk[]
+     feedbacks       ContentFeedback[]
+     consistencyChecks ConsistencyCheck[]
+     factChecks      FactCheckResult[]
+     citations       Citation[]
+     exports         ContentExport[]
 
-    @@index([topicId])
-    @@index([status])
-    @@index([outlineGeneratedAt])
-    @@map("contents")
+     @@index([topicId])
+     @@index([status])
+     @@index([outlineGeneratedAt])
+     @@map("contents")
+}
+
+model ContentChunk {
+  id         String @id @default(cuid())
+  contentId  String
+  content    Content @relation(fields: [contentId], references: [id])
+
+  chunkText  String
+  chunkIndex Int
+  wordCount  Int
+  charCount  Int
+  startPosition Int
+  endPosition   Int
+
+  createdAt DateTime @default(now())
+
+  @@index([contentId, chunkIndex])
+  @@map("content_chunks")
 }
 
 model ContentSource {
-    id        String  @id @default(cuid())
-    contentId String
-    content   Content @relation(fields: [contentId], references: [id])
+  id        String  @id @default(cuid())
+  contentId String
+  content   Content @relation(fields: [contentId], references: [id])
 
-    url       String
-    title     String?
-    relevance Float?
+  url       String
+  title     String?
+  relevance Float?
 
-    @@map("content_sources")
+  @@map("content_sources")
 }
 
 model ContentVersion {
@@ -749,16 +777,108 @@ model AnalyticsMetric {
 }
 
 model AnalyticsCache {
-   id        String    @id @default(cuid())
-   userId    String?
-   cacheKey  String    // Unique key for cached data
-   data      String    // JSON string with cached analytics data
-   expiresAt DateTime? // When the cache expires
-   createdAt DateTime  @default(now())
-   updatedAt DateTime  @updatedAt
+    id        String    @id @default(cuid())
+    userId    String?
+    cacheKey  String    // Unique key for cached data
+    data      String    // JSON string with cached analytics data
+    expiresAt DateTime? // When the cache expires
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
 
-   @@unique([userId, cacheKey])
-   @@index([userId])
-   @@index([expiresAt])
-   @@map("analytics_cache")
+    @@unique([userId, cacheKey])
+    @@index([userId])
+    @@index([expiresAt])
+    @@map("analytics_cache")
+}
+
+model QualityMetric {
+    id          String   @id @default(cuid())
+    metricType  String   // 'retrieval_accuracy', 'generation_quality', 'user_satisfaction'
+    score       Float    // Quality score (0.0 to 1.0)
+    operationId String?  // Related operation ID (generation, retrieval, etc.)
+    userId      String?  // User who provided feedback or initiated operation
+    sessionId   String?  // Session identifier
+    metadata    String?  // JSON string with additional metric context
+    timestamp   DateTime @default(now())
+
+    @@index([metricType])
+    @@index([operationId])
+    @@index([userId])
+    @@index([timestamp])
+    @@index([sessionId])
+    @@map("quality_metrics")
+}
+
+model UserFeedback {
+    id          String   @id @default(cuid())
+    userId      String
+    operationId String   // ID of the operation being rated
+    operationType String // 'generation', 'retrieval', 'search'
+    rating      Int      // 1-5 satisfaction rating
+    feedback    String?  // Optional text feedback
+    categories  String?  // JSON array of feedback categories
+    metadata    String?  // JSON string with additional context
+    timestamp   DateTime @default(now())
+
+    @@index([userId])
+    @@index([operationId])
+    @@index([operationType])
+    @@index([timestamp])
+    @@map("user_feedbacks")
+}
+
+model ABTest {
+    id          String   @id @default(cuid())
+    name        String   // Test name
+    description String?  // Test description
+    status      String   @default("active") // 'active', 'completed', 'paused'
+    configA     String   // JSON configuration for variant A
+    configB     String   // JSON configuration for variant B
+    startDate   DateTime @default(now())
+    endDate     DateTime?
+    targetUsers Int      // Target number of users for each variant
+    currentUsersA Int    @default(0)
+    currentUsersB Int    @default(0)
+
+    @@map("ab_tests")
+}
+
+model ABTestResult {
+    id          String   @id @default(cuid())
+    testId      String
+    variant     String   // 'A' or 'B'
+    userId      String
+    metricType  String   // Type of metric being measured
+    metricValue Float    // Value of the metric
+    timestamp   DateTime @default(now())
+
+    @@index([testId])
+    @@index([variant])
+    @@index([userId])
+    @@index([metricType])
+    @@map("ab_test_results")
+}
+
+model PerformanceMetrics {
+    id          String   @id @default(cuid())
+    operation   String   // The operation being measured (e.g., 'retrieval', 'generation')
+    duration    Int      // Response time in milliseconds
+    status      String   // 'success', 'error', 'timeout'
+    errorType   String?  // Type of error if status is 'error'
+    component   String   // Component that performed the operation
+    method      String   // Method or endpoint name
+    inputSize   Int?     // Size of input data (e.g., characters, tokens)
+    outputSize  Int?     // Size of output data
+    userId      String?  // User who initiated the operation
+    sessionId   String?  // Session identifier for grouping requests
+    resourceUsage String? // JSON string with resource usage data
+    timestamp   DateTime @default(now())
+
+    @@index([operation])
+    @@index([status])
+    @@index([component])
+    @@index([timestamp])
+    @@index([userId])
+    @@index([sessionId])
+    @@map("performance_metrics")
 }

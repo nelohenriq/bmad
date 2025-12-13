@@ -42,6 +42,8 @@ export class CategoryInferenceService {
    */
   async inferCategory(feedUrl: string): Promise<CategoryInferenceResult> {
     try {
+      // Initialize AI service if needed
+      await aiService.initialize()
       // Fetch the RSS feed to analyze its content
       const fetchResult = await rssService.fetchFeed(feedUrl, 1) // Single retry for speed
 
@@ -95,10 +97,9 @@ Respond with a JSON object in this exact format:
 Choose "Other" only if none of the predefined categories are appropriate.`
 
       // Use AI to analyze and categorize
-      const analysisResponse = await aiService.analyzeTopic(`RSS Feed Analysis: ${feedInfo.title}`)
-
-      // For now, return a fallback since analyzeTopic might not work as expected
-      // In a real implementation, we'd parse the AI response
+      await aiService.analyzeTopic(`RSS Feed Analysis: ${feedInfo.title}`)
+      // If AI call succeeds, we could parse the response here
+      // For now, still use fallback since analyzeTopic might not work as expected
       const inferredCategory = this.fallbackCategoryInference(feedInfo)
 
       return {

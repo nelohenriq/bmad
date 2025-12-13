@@ -3,10 +3,14 @@ import { contentService } from '@/services/database/contentService'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('API /feeds called')
+    console.log('DATABASE_URL:', process.env.DATABASE_URL)
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
+    console.log('User ID:', userId)
 
     if (!userId) {
+      console.log('No userId provided')
       return NextResponse.json(
         { error: 'User ID is required' },
         { status: 400 }
@@ -14,6 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const feeds = await contentService.getUserFeeds(userId)
+    console.log('Feeds returned:', feeds.length)
     return NextResponse.json(feeds)
   } catch (error) {
     console.error('Error fetching feeds:', error)

@@ -20,12 +20,8 @@ export async function getSession(): Promise<UserSession | null> {
   const cookieStore = await cookies()
   const sessionToken = cookieStore.get('session_token')
 
-  // For this demo, we'll simulate a logged-in user if a specific cookie exists
-  // or just default to the mock user for ease of development/testing as requested
-  // To simulate "logged out", we could check for a missing cookie.
-  
-  // For now, always return the mock user to maintain current functionality
-  // but wrapped in a proper async function structure
+  // For demo/development purposes, always return the mock user
+  // This allows the app to work without proper authentication setup
   return MOCK_USER
 }
 

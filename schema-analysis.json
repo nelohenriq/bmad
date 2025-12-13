@@ -1,0 +1,119 @@
+{
+  "timestamp": "2025-11-20T03:27:17.060Z",
+  "differences": [
+    {
+      "table": "feeds",
+      "column": "id",
+      "sqliteType": "INTEGER",
+      "postgresType": "INTEGER",
+      "nullable": false,
+      "needsTransform": false
+    },
+    {
+      "table": "feeds",
+      "column": "url",
+      "sqliteType": "TEXT",
+      "postgresType": "TEXT",
+      "nullable": false,
+      "needsTransform": false
+    },
+    {
+      "table": "feeds",
+      "column": "title",
+      "sqliteType": "TEXT",
+      "postgresType": "TEXT",
+      "nullable": true,
+      "needsTransform": false
+    },
+    {
+      "table": "feeds",
+      "column": "description",
+      "sqliteType": "TEXT",
+      "postgresType": "TEXT",
+      "nullable": true,
+      "needsTransform": false
+    },
+    {
+      "table": "feeds",
+      "column": "last_fetched",
+      "sqliteType": "DATETIME",
+      "postgresType": "TIMESTAMPTZ",
+      "nullable": true,
+      "needsTransform": true,
+      "transformLogic": "new Date(last_fetched) // Convert string to Date object"
+    },
+    {
+      "table": "feeds",
+      "column": "created_at",
+      "sqliteType": "DATETIME",
+      "postgresType": "TIMESTAMPTZ",
+      "nullable": true,
+      "needsTransform": true,
+      "transformLogic": "new Date(created_at) // Convert string to Date object"
+    },
+    {
+      "table": "feed_items",
+      "column": "id",
+      "sqliteType": "INTEGER",
+      "postgresType": "INTEGER",
+      "nullable": false,
+      "needsTransform": true,
+      "transformLogic": "generateUUID(id) // Convert INTEGER PK to UUID"
+    },
+    {
+      "table": "feed_items",
+      "column": "feed_id",
+      "sqliteType": "INTEGER",
+      "postgresType": "INTEGER",
+      "nullable": false,
+      "needsTransform": false
+    },
+    {
+      "table": "feed_items",
+      "column": "guid",
+      "sqliteType": "TEXT",
+      "postgresType": "TEXT",
+      "nullable": true,
+      "needsTransform": false
+    },
+    {
+      "table": "feed_items",
+      "column": "title",
+      "sqliteType": "TEXT",
+      "postgresType": "TEXT",
+      "nullable": false,
+      "needsTransform": false
+    },
+    {
+      "table": "feed_items",
+      "column": "content",
+      "sqliteType": "TEXT",
+      "postgresType": "TEXT",
+      "nullable": true,
+      "needsTransform": false
+    },
+    {
+      "table": "feed_items",
+      "column": "published_at",
+      "sqliteType": "DATETIME",
+      "postgresType": "TIMESTAMPTZ",
+      "nullable": true,
+      "needsTransform": true,
+      "transformLogic": "new Date(published_at) // Convert string to Date object"
+    },
+    {
+      "table": "feed_items",
+      "column": "created_at",
+      "sqliteType": "DATETIME",
+      "postgresType": "TIMESTAMPTZ",
+      "nullable": true,
+      "needsTransform": true,
+      "transformLogic": "new Date(created_at) // Convert string to Date object"
+    }
+  ],
+  "summary": {
+    "totalColumns": 13,
+    "transformsNeeded": 5,
+    "directMappings": 8
+  }
+}

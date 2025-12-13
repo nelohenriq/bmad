@@ -7,6 +7,7 @@ export const createContentSchema = z.object({
   length: z.string().default('medium'),
   model: z.string().default('llama2:7b'),
   prompt: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   sources: z.array(z.object({
     url: z.string().url('Invalid source URL'),
     title: z.string().optional(),

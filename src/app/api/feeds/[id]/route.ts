@@ -4,7 +4,8 @@ import { feedProcessor } from '@/services/rss/feedProcessor'
 
 export async function POST(request: NextRequest, context: any) {
   try {
-    const { id } = context.params
+    const params = await context.params
+    const { id } = params
     const { action } = await request.json()
 
     if (action === 'refresh') {
@@ -20,8 +21,9 @@ export async function POST(request: NextRequest, context: any) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   } catch (error) {
     console.error('Error processing feed action:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to process feed action' },
+      { error: `Failed to process feed action: ${errorMessage}` },
       { status: 500 }
     )
   }
@@ -29,7 +31,8 @@ export async function POST(request: NextRequest, context: any) {
 
 export async function PUT(request: NextRequest, context: any) {
   try {
-    const { id } = context.params
+    const params = await context.params
+    const { id } = params
     const body = await request.json()
 
     const feed = await contentService.updateFeed(id, body)
@@ -45,7 +48,8 @@ export async function PUT(request: NextRequest, context: any) {
 
 export async function DELETE(request: NextRequest, context: any) {
   try {
-    const { id } = context.params
+    const params = await context.params
+    const { id } = params
 
     await contentService.deleteFeed(id)
     return NextResponse.json({ success: true })

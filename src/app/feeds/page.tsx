@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { FeedAdditionForm } from '@/components/FeedAdditionForm'
 import { FeedSettings } from '@/components/FeedSettings'
 import { FeedStatusIndicator } from '@/components/FeedStatusIndicator'
-import { FeedNotifications } from '@/components/FeedNotifications'
-import { FeedErrorHistory } from '@/components/FeedErrorHistory'
+
 // FeedData and UpdateFeedData types are now handled via API
 interface FeedData {
   id: string
@@ -20,8 +19,17 @@ interface FeedData {
   contentFilters?: Record<string, any> | null
   lastConfigUpdate?: Date | null
   lastFetched: Date | null
+  processingStatus?: string | null
   createdAt: Date
   updatedAt: Date
+  itemCount?: number
+  lastProcessingResult?: {
+    itemsProcessed: number
+    itemsFiltered: number
+    newItems: number
+    duration: number
+    error?: string
+  }
 }
 
 interface UpdateFeedData {
@@ -43,6 +51,7 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import {
   Rss,
   ExternalLink,
@@ -57,6 +66,7 @@ import {
   List,
   Settings,
 } from 'lucide-react'
+import { toast } from '@/lib/hooks/useToast'
 
 export default function FeedsPage() {
   const [feeds, setFeeds] = useState<FeedData[]>([])
@@ -79,12 +89,29 @@ export default function FeedsPage() {
   const loadFeeds = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/feeds?userId=${userId}`)
-      if (!response.ok) {
+      const [feedsResponse, itemCountsResponse] = await Promise.all([
+        fetch(`/api/feeds?userId=${userId}`),
+        fetch(`/api/feeds/item-counts?userId=${userId}`)
+      ])
+
+      if (!feedsResponse.ok) {
         throw new Error('Failed to fetch feeds')
       }
-      const userFeeds = await response.json()
-      setFeeds(userFeeds)
+
+      const userFeeds = await feedsResponse.json()
+      let itemCounts: Record<string, number> = {}
+
+      if (itemCountsResponse.ok) {
+        itemCounts = await itemCountsResponse.json()
+      }
+
+      // Add item counts to feeds
+      const feedsWithCounts = userFeeds.map((feed: FeedData) => ({
+        ...feed,
+        itemCount: itemCounts[feed.id] || 0
+      }))
+
+      setFeeds(feedsWithCounts)
       setError(null)
     } catch (err) {
       setError('Failed to load feeds')
@@ -97,6 +124,9 @@ export default function FeedsPage() {
   useEffect(() => {
     loadFeeds()
   }, [])
+
+  // Removed auto-refresh to prevent constant refreshing during processing
+  // Users can manually refresh using the individual feed refresh buttons or bulk refresh
 
   const handleFeedAdded = () => {
     loadFeeds() // Reload feeds after adding a new one
@@ -170,6 +200,8 @@ export default function FeedsPage() {
     }
   }
 
+  const [processingProgress, setProcessingProgress] = useState<Record<string, { current: number; total: number }>>({})
+
   const handleBulkRefresh = async () => {
     const activeFeeds = feeds.filter((feed) => feed.isActive)
     if (activeFeeds.length === 0) {
@@ -182,6 +214,13 @@ export default function FeedsPage() {
 
     try {
       setError(null)
+      // Initialize progress tracking
+      const initialProgress: Record<string, { current: number; total: number }> = {}
+      activeFeeds.forEach(feed => {
+        initialProgress[feed.id] = { current: 0, total: feed.itemCount || 1 }
+      })
+      setProcessingProgress(initialProgress)
+
       // Process all active feeds via API
       await Promise.all(
         activeFeeds.map((feed) =>
@@ -197,16 +236,29 @@ export default function FeedsPage() {
         )
       )
       loadFeeds() // Reload feeds to show updated status
+      setProcessingProgress({}) // Clear progress after completion
     } catch (err) {
       setError('Failed to refresh some feeds')
       console.error('Error refreshing feeds:', err)
       loadFeeds() // Still reload to show partial updates
+      setProcessingProgress({}) // Clear progress on error
     }
   }
 
   const handleForceRefresh = async (feedId: string) => {
     try {
       setError(null)
+      
+      // Initialize progress tracking for this feed
+      // Use the feed's item count as the total, or 1 if unknown
+      const feed = feeds.find(f => f.id === feedId)
+      const totalItems = feed?.itemCount || 1
+      
+      setProcessingProgress(prev => ({
+        ...prev,
+        [feedId]: { current: 0, total: totalItems }
+      }))
+
       const response = await fetch(`/api/feeds/${feedId}`, {
         method: 'POST',
         headers: {
@@ -214,13 +266,52 @@ export default function FeedsPage() {
         },
         body: JSON.stringify({ action: 'refresh' }),
       })
+
+      const result = await response.json()
+
       if (!response.ok) {
-        throw new Error('Failed to refresh feed')
+        throw new Error(result.error || 'Failed to refresh feed')
       }
+
+      // Show processing results
+      if (result.success) {
+        toast({
+          title: 'Feed refreshed successfully',
+          description: `Processed ${result.itemsProcessed} items, ${result.newItems} new items added. (${result.duration}ms)`,
+        })
+      } else {
+        toast({
+          title: 'Feed refresh completed with issues',
+          description: result.error || 'Some items may not have been processed',
+          variant: 'destructive'
+        })
+      }
+
+      // Clear progress for this feed
+      setProcessingProgress(prev => {
+        const newProgress = { ...prev }
+        delete newProgress[feedId]
+        return newProgress
+      })
+
       loadFeeds() // Reload feeds to show updated status
     } catch (err) {
-      setError('Failed to refresh feed')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh feed'
+      setError(`Refresh failed: ${errorMessage}`)
       console.error('Error refreshing feed:', err)
+      
+      // Clear progress for this feed on error
+      setProcessingProgress(prev => {
+        const newProgress = { ...prev }
+        delete newProgress[feedId]
+        return newProgress
+      })
+      
+      toast({
+        title: 'Refresh failed',
+        description: errorMessage,
+        variant: 'destructive'
+      })
     }
   }
 
@@ -304,9 +395,12 @@ export default function FeedsPage() {
   )
 
   // Render feed item (extracted to avoid duplication)
-  const renderFeedItem = (feed: FeedData) => (
-    <Card key={feed.id} className="mb-4">
-      <CardContent className="p-6">
+  const renderFeedItem = (feed: FeedData) => {
+    const progress = processingProgress[feed.id]
+    
+    return (
+      <Card key={feed.id} className="mb-4">
+        <CardContent className="p-6">
         {editingFeed === feed.id ? (
           // Edit Mode
           <div className="space-y-4">
@@ -405,6 +499,16 @@ export default function FeedsPage() {
                     lastFetched={feed.lastFetched}
                     retryCount={(feed as any).fetchRetryCount || 0}
                   />
+                  {feed.processingStatus && feed.processingStatus !== 'idle' && (
+                    <Badge
+                      variant={feed.processingStatus === 'processing' ? 'default' : feed.processingStatus === 'completed' ? 'secondary' : 'destructive'}
+                      className="text-xs"
+                    >
+                      {feed.processingStatus === 'processing' && 'Processing...'}
+                      {feed.processingStatus === 'completed' && 'Processed'}
+                      {feed.processingStatus === 'failed' && 'Failed'}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 break-all transition-colors">{feed.url}</p>
               </div>
@@ -426,6 +530,9 @@ export default function FeedsPage() {
                     Last fetched {new Date(feed.lastFetched).toLocaleDateString()}
                   </span>
                 )}
+                {feed.itemCount !== undefined && (
+                  <span>{feed.itemCount} items</span>
+                )}
                 {feed.category && (
                   <Badge variant="secondary" className="text-xs">
                     {feed.category}
@@ -433,6 +540,19 @@ export default function FeedsPage() {
                 )}
               </div>
             </div>
+
+            {/* Progress Bar */}
+            {progress && (
+              <div className="mt-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600 dark:text-gray-300">Processing: {progress.current}/{progress.total} items</span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0}%
+                  </span>
+                </div>
+                <Progress value={progress.current} max={progress.total} />
+              </div>
+            )}
 
             {/* Action buttons */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 transition-colors">
@@ -463,11 +583,15 @@ export default function FeedsPage() {
                 size="sm"
                 onClick={() => handleForceRefresh(feed.id)}
                 className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                title="Force refresh feed"
-                disabled={!feed.isActive}
+                title={feed.processingStatus === 'processing' ? 'Feed is currently being processed' : 'Force refresh feed'}
+                disabled={!feed.isActive || feed.processingStatus === 'processing'}
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
+                {feed.processingStatus === 'processing' ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                {feed.processingStatus === 'processing' ? 'Processing...' : 'Refresh'}
               </Button>
 
               <Button
@@ -522,7 +646,7 @@ export default function FeedsPage() {
         )}
       </CardContent>
     </Card>
-  )
+  )}
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-50 dark:bg-gray-900 transition-colors">
@@ -662,7 +786,7 @@ export default function FeedsPage() {
       {/* Feed Settings Modal */}
       {selectedFeedForSettings && (
         <FeedSettings
-          feed={selectedFeedForSettings}
+          feed={selectedFeedForSettings as FeedData}
           isOpen={settingsModalOpen}
           onClose={() => {
             setSettingsModalOpen(false)

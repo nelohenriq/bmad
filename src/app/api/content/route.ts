@@ -21,9 +21,21 @@ export async function GET(request: NextRequest) {
       content = await contentService.getUserContent(user.id, limit, offset)
     }
 
+    // Transform content to match frontend expectations
+    const transformedContent = content.map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      content: item.content,
+      type: item.style || 'generated', // Use style as type, default to 'generated'
+      tags: item.tags ? JSON.parse(item.tags) : [], // Parse tags from JSON
+      wordCount: item.wordCount || item.content.split(' ').length, // Use stored wordCount or calculate
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    }))
+
     return NextResponse.json({
       success: true,
-      data: content,
+      data: transformedContent,
       pagination: {
         limit,
         offset,
@@ -32,7 +44,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Content fetch error:', error)
-    
+
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -84,9 +96,25 @@ export async function POST(request: NextRequest) {
     // Fetch the complete content with sources
     const fullContent = await contentService.getContentById(createdContent.id)
 
+    if (!fullContent) {
+      throw new Error('Content not found after creation')
+    }
+
+    // Transform response to match frontend expectations
+    const transformedContent = {
+      id: fullContent.id,
+      title: fullContent.title,
+      content: fullContent.content,
+      type: fullContent.style || 'generated',
+      tags: fullContent.tags ? JSON.parse(fullContent.tags) : [],
+      wordCount: fullContent.wordCount || fullContent.content.split(' ').length,
+      createdAt: fullContent.createdAt,
+      updatedAt: fullContent.updatedAt,
+    }
+
     return NextResponse.json({
       success: true,
-      data: fullContent,
+      data: transformedContent,
     })
   } catch (error) {
     console.error('Content creation error:', error)

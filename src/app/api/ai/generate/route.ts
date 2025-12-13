@@ -10,7 +10,12 @@ export async function POST(request: NextRequest) {
     await aiService.initialize()
 
     const body = await request.json()
-    const { topic, style, length, includeSources }: ContentGenerationOptions = body
+    const { topic, mode, ragEnabled, retrievalData }: any = body
+    
+    // Map frontend parameters to backend options
+    const style = mode?.includes('creative') ? 'creative' : 'professional'
+    const length = ragEnabled ? 'long' : 'medium'
+    const includeSources = ragEnabled && retrievalData ? true : false
 
     if (!topic) {
       return NextResponse.json(
@@ -21,9 +26,9 @@ export async function POST(request: NextRequest) {
 
     options = {
       topic,
-      style: style || 'professional',
-      length: length || 'medium',
-      includeSources: includeSources ?? true,
+      style,
+      length,
+      includeSources,
       userId: 'user-1' // TODO: Get from authenticated user session
     }
 

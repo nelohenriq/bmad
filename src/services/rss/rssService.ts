@@ -1,5 +1,7 @@
 import Parser from 'rss-parser'
 import { FeedData } from '../database/contentService'
+import { contentChunkingService } from '../content/contentChunkingService'
+import { prisma } from '../database/prisma'
 
 export interface RSSItem {
   title?: string
@@ -164,6 +166,38 @@ export class RSSService {
       return urlObj.hostname
     } catch {
       return 'unknown'
+    }
+  }
+
+  /**
+   * Process content and create chunks for storage
+   */
+  async processContentForChunking(contentId: string, text: string): Promise<void> {
+    try {
+      // Chunk the content
+      const chunks = contentChunkingService.chunkText(contentId, text, {
+        maxChunkSize: 1000,
+        overlap: 100,
+        strategy: 'sentence'
+      })
+
+      // Store chunks in database
+      if (chunks.length > 0) {
+        await prisma.contentChunk.createMany({
+          data: chunks.map(chunk => ({
+            contentId: chunk.contentId,
+            chunkText: chunk.chunkText,
+            chunkIndex: chunk.chunkIndex,
+            wordCount: chunk.metadata.wordCount,
+            charCount: chunk.metadata.charCount,
+            startPosition: chunk.metadata.startPosition,
+            endPosition: chunk.metadata.endPosition
+          }))
+        })
+      }
+    } catch (error) {
+      console.error('Error processing content for chunking:', error)
+      // Don't throw - chunking failure shouldn't break feed processing
     }
   }
 }

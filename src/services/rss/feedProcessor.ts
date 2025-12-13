@@ -1,8 +1,7 @@
 import { rssService, RSSFeed, RSSItem, FetchResult } from './rssService'
 import { contentService, FeedData } from '../database/contentService'
 import { prisma } from '../database/prisma'
-import { analysisJobQueue } from '../analysis/analysisJobQueue'
-import { autoContentGenerator } from './autoContentGenerator'
+import { feedItemBackgroundProcessor } from './feedItemBackgroundProcessor'
 
 export interface ProcessingResult {
   feedId: string
@@ -28,7 +27,7 @@ export class FeedProcessor {
     applyKeywordFilters: true,
     applyContentFilters: true,
     maxItemsPerFeed: 50
-  }): Promise<ProcessingResult> {
+  }, onProgress?: (progress: { current: number; total: number; item?: RSSItem }) => void): Promise<ProcessingResult> {
     const startTime = Date.now()
     const result: ProcessingResult = {
       feedId: feed.id,
@@ -38,6 +37,12 @@ export class FeedProcessor {
       newItems: 0,
       duration: 0
     }
+
+    // Update processing status to 'processing'
+    await prisma.feed.update({
+      where: { id: feed.id },
+      data: { processingStatus: 'processing' }
+    })
 
     try {
       // Fetch RSS content
@@ -54,20 +59,48 @@ export class FeedProcessor {
       // Update feed status for successful fetch
       await this.updateFeedStatus(feed.id, 'success', undefined, fetchResult.retryCount)
 
-      // Process feed items
-      const processedItems = await this.processFeedItems(feed, fetchResult.feed, options)
+      // Process feed items (fast ingestion only)
+      const processedItems = await this.processFeedItems(feed, fetchResult.feed, options, onProgress)
 
       result.success = true
       result.itemsProcessed = fetchResult.feed.items.length
       result.itemsFiltered = fetchResult.feed.items.length - processedItems
       result.newItems = processedItems
-      result.duration = Date.now() - startTime
 
+      // Trigger background processing for heavy operations (web search, embedding, analysis)
+      // This runs asynchronously and doesn't block the feed refresh response
+      feedItemBackgroundProcessor.processPendingItems(feed.id)
+        .then(processingResult => {
+          console.log(`Background processing completed for feed ${feed.id}: ${processingResult.successful}/${processingResult.totalItems} items processed in ${processingResult.totalTime}ms`)
+
+          // Update feed status to completed only after background processing finishes
+          return prisma.feed.update({
+            where: { id: feed.id },
+            data: { processingStatus: 'completed' }
+          })
+        })
+        .catch(error => {
+          console.error(`Background processing failed for feed ${feed.id}:`, error)
+          // Still mark as completed since ingestion succeeded, even if processing failed
+          return prisma.feed.update({
+            where: { id: feed.id },
+            data: { processingStatus: 'completed' }
+          })
+        })
+
+      result.duration = Date.now() - startTime
       return result
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown processing error'
       await this.updateFeedStatus(feed.id, 'error', errorMessage, 0)
+
+      // Update processing status to 'failed'
+      await prisma.feed.update({
+        where: { id: feed.id },
+        data: { processingStatus: 'failed' }
+      })
+
       result.error = errorMessage
       result.duration = Date.now() - startTime
       return result
@@ -77,10 +110,18 @@ export class FeedProcessor {
   /**
    * Process individual feed items with filtering
    */
-  private async processFeedItems(feed: FeedData, rssFeed: RSSFeed, options: FeedProcessingOptions): Promise<number> {
+  private async processFeedItems(feed: FeedData, rssFeed: RSSFeed, options: FeedProcessingOptions, onProgress?: (progress: { current: number; total: number; item?: RSSItem }) => void): Promise<number> {
     let newItemsCount = 0
+    const totalItems = rssFeed.items.slice(0, options.maxItemsPerFeed).length
 
-    for (const item of rssFeed.items.slice(0, options.maxItemsPerFeed)) {
+    for (let i = 0; i < totalItems; i++) {
+      const item = rssFeed.items[i]
+
+      // Emit progress
+      if (onProgress) {
+        onProgress({ current: i + 1, total: totalItems, item })
+      }
+
       // Apply filters
       if (options.applyKeywordFilters && !this.passesKeywordFilter(item, feed.keywordFilters)) {
         continue
@@ -171,14 +212,15 @@ export class FeedProcessor {
   }
 
   /**
-   * Create feed item in database and trigger analysis and auto content generation
+   * Create feed item in database with raw content only
+   * Heavy processing (web search, embedding, analysis) happens in background
    */
   private async createFeedItem(feedId: string, item: RSSItem): Promise<void> {
     const content = item.content || item.contentSnippet || ''
     const wordCount = this.countWords(content)
     const readingTime = Math.ceil(wordCount / 200) // Assume 200 words per minute
 
-    const feedItem = await prisma.feedItem.create({
+    await prisma.feedItem.create({
       data: {
         feedId,
         guid: item.guid,
@@ -191,57 +233,13 @@ export class FeedProcessor {
         categories: item.categories ? JSON.stringify(item.categories) : null,
         contentHash: this.generateContentHash(item),
         wordCount,
-        readingTime
+        readingTime,
+        processingStatus: 'pending' // Mark for background processing
       } as any // Type assertion until Prisma client is regenerated
     })
 
-    // Trigger semantic analysis for the new content
-    try {
-      await analysisJobQueue.addJob({
-        feedItemId: feedItem.id,
-        title: item.title || 'Untitled',
-        content: content,
-        description: item.contentSnippet
-      }, 'normal')
-    } catch (error) {
-      console.error(`Failed to queue analysis for feed item ${feedItem.id}:`, error)
-      // Don't fail the feed processing if analysis queuing fails
-    }
-
-    // Trigger auto content generation for new articles
-    try {
-      // Get the feed to find the user ID
-      const feed = await prisma.feed.findUnique({
-        where: { id: feedId },
-        select: { userId: true } as any
-      })
-
-      if (feed && (feed as any).userId) {
-        // Run auto content generation asynchronously (don't await)
-        autoContentGenerator.processArticle(
-          feedItem.id,
-          item.title || 'Untitled',
-          content,
-          (feed as any).userId,
-          {
-            style: 'professional',
-            length: 'medium',
-            includeSources: true,
-            enableAutoGeneration: true,
-            maxSearchResults: 3
-          }
-        ).then(result => {
-          if (result) {
-            console.log(`Auto-generated content for article: ${item.title}`)
-          }
-        }).catch(error => {
-          console.error(`Auto content generation failed for article ${feedItem.id}:`, error)
-        })
-      }
-    } catch (error) {
-      console.error(`Failed to trigger auto content generation for feed item ${feedItem.id}:`, error)
-      // Don't fail the feed processing if auto generation fails
-    }
+    // Heavy processing (web search, embedding, analysis) now happens in background
+    // This makes feed ingestion fast and non-blocking
   }
 
   /**
